@@ -1,0 +1,20 @@
+{
+  "name": "irigatalizer",
+  "description": "A system for managing irigation.",
+  "version": "0.0.1",
+  "publisher": "greensopinion",
+  "author": {
+    "name": "David Green",
+    "email": "greensopinion@gmail.com",
+    "url": "https:/greensopinion.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/greensopinion/irigatalizer.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
