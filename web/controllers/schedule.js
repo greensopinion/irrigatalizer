@@ -23,7 +23,7 @@ let createTimes = () => {
 exports.handler = async (req, res) => {
     try {
         const scheduleModel = {
-            "title": "Schedule",
+            "title": "schedule",
             "schedule": {
                 "days": [
                     {

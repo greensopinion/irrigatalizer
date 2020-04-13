@@ -1,5 +1,5 @@
 {
-  "name": "irigatalizer",
+  "name": "irrigatalizer",
   "description": "A system for managing irigation.",
   "version": "0.0.1",
   "publisher": "greensopinion",
@@ -11,7 +11,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/greensopinion/irigatalizer.git"
+    "url": "https://github.com/greensopinion/irrigatalizer.git"
   },
   "main": "index.js",
   "scripts": {
