@@ -1,6 +1,11 @@
 extends default
 
 block content
-  h1 Schedule
-  div
-    | placeholder
+  h1 #{title}
+  div.schedule
+    each day in schedule.days
+        div.day
+            h2 #{day.name}
+            each time in times
+                div.time&attributes({class:`minutesPastHour${time.offset%60}`})
+                    | #{time.name}
