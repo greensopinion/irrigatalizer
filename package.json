@@ -21,7 +21,9 @@
     "build": "npm run copy-resources && npm run sass",
     "sass": "node-sass web/sass -o web/static/styles",
     "clean": "rm -rf build",
-    "release": "./create-release.sh"
+    "release": "./create-release.sh",
+    "deploy": "./deploy.sh",
+    "clean-deploy": "npm run clean && npm run release && npm run deploy"
   },
   "dependencies": {
     "body-parser": "^1.19.0",
