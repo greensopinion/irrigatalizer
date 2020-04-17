@@ -30,8 +30,16 @@ pm2 logs
 
 ## Networking
 
+### Firewall and Port 80
+
 Redirect port 80 to port 8000 so that root access is not needed:
 
 ```
 sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8000
 ```
+
+Also see [saving-iptables-firewall-rules-permanently](https://discourse.osmc.tv/t/saving-iptables-firewall-rules-permanently/7286/7) to have that stick on reboot.
+
+### SSH Without Password
+
+https://support.hostway.com/hc/en-us/articles/115001569710-Linux-Server-Access-Using-SSH-Key-without-Password
