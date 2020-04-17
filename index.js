@@ -14,7 +14,7 @@ appRoutes.createRoutes(app);
 webRoutes.createRoutes(app);
 
 // Listen to the env-specified port, or 80 otherwise
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}...`);
 });

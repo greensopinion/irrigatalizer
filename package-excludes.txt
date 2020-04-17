@@ -6,3 +6,4 @@
 - *.spec.js
 - jest.config.js
 - coverage/
+- *.sh
