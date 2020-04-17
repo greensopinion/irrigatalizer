@@ -1,0 +1,8 @@
+- node_modules/
+- build/
+- web/sass/
+- .*
+- package-excludes.txt
+- *.spec.js
+- jest.config.js
+- coverage/
