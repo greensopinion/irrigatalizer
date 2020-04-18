@@ -1,5 +1,61 @@
 extends default
 
+
+
 block content
+  script.
+    function remainingTime(start,end) {
+      var duration = end - start;
+      var days = Math.floor(duration / (1000 * 60 * 60 * 24));
+      var hours = Math.floor((duration % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      var minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+      var seconds = Math.floor((duration % (1000 * 60)) / 1000);
+      var text = "";
+      if (days > 0) {
+        text = `${days} days`;
+      }
+      if (hours > 0) {
+        text = `${text} ${hours} hours`;
+      }
+      if (minutes > 0) {
+        text = `${text} ${minutes} minutes`;
+      }
+      if (seconds > 0) {
+        text = `${text} ${seconds} seconds`;
+      }
+      return text.replace(/\s{2,}/," ").trim();
+    }
+
+    function setupCountDown(id,end) {
+      var intervalEnd = Date.parse(end);
+      var interval = setInterval(function () {
+        var now = Date.now();
+        if (now < intervalEnd) {
+          document.getElementById(id).innerHTML = remainingTime(now,intervalEnd);
+        } else {
+          clearInterval(interval);
+          document.getElementById(id).innerHTML = "";
+        }
+      });
+    }
   h1 #{title}
-  div this is some content
+  div.dashboard
+    div.controls
+      div 
+        span.label status: 
+        if status.running
+          i.material-icons toggle_on
+        else
+          i.material-icons toggle_off
+      div 
+        if status.running
+          span.label current: 
+          span.time#currentTime
+            script.
+              setupCountDown("currentTime","#{status.current.end}")
+      div 
+        if status.next && status.next.start
+          span.label next: 
+          span.time#nextTime
+            script.
+              setupCountDown("nextTime","#{status.next.end}")

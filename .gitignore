@@ -1,5 +1,6 @@
 /node_modules
 /coverage
-/web/static/styles
+/web/static/styles/main.css
+/web/static/styles/bootstrap*.css
 /build
 .DS_Store
