@@ -35,6 +35,7 @@ block content
         } else {
           clearInterval(interval);
           document.getElementById(id).innerHTML = "";
+          setTimeout(function() { window.location.reload(false); },1100);
         }
       });
     }
