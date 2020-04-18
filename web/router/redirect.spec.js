@@ -10,10 +10,7 @@ describe("redirect", () => {
     app.use("/", redirect.router);
   });
 
-  it("should perform a redirect", done => {
-    request(app)
-      .get("/")
-      .expect("Location", "/schedule/")
-      .expect(301, done);
+  it("should perform a redirect", (done) => {
+    request(app).get("/").expect("Location", "/dashboard/").expect(301, done);
   });
 });
