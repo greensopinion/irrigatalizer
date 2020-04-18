@@ -7,6 +7,10 @@ Server listening on port 8000...
 
 ## Pi Setup
 
+### NodeJS 12
+
+Follow Debian instructions here: [github.com/nodesource/distributions](https://github.com/nodesource/distributions/blob/master/README.md)
+
 ### Daemon and Process Management
 
 Install pm2:
