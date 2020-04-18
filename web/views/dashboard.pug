@@ -59,4 +59,7 @@ block content
           span.label next: 
           span.time#nextTime
             script.
-              setupCountDown("nextTime","#{status.next.end}")
+              setupCountDown("nextTime","#{status.next.start}")
+          span.duration#nextDuration
+            script.
+              document.getElementById("nextDuration").innerHTML = " ("+ remainingTime(Date.parse("#{status.next.start}"),Date.parse("#{status.next.end}"))+")";
