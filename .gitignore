@@ -1,5 +1,5 @@
 /node_modules
 /coverage
-/static/styles
+/web/static/styles
 /build
 .DS_Store

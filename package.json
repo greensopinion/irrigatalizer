@@ -17,7 +17,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "jest",
-    "copy-resources": "mkdir -p web/static/styles && mkdir -p web/static/js && cp node_modules/bootstrap/dist/css/bootstrap.min.css web/static/styles",
+    "copy-resources": "mkdir -p web/static/styles && cp node_modules/bootstrap/dist/css/bootstrap.min.css web/static/styles",
     "build": "npm run copy-resources && npm run sass",
     "sass": "node-sass web/sass -o web/static/styles",
     "clean": "rm -rf build",
