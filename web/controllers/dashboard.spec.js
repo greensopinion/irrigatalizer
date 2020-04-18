@@ -17,7 +17,7 @@ describe("dashboard", () => {
         if (err) {
           return done(err);
         }
-        expect(response.text).toMatch(/<title>dashboard<\/title>/);
+        expect(response.text).toMatch(/<title>dashboard<\/title>/m);
         expect(response.text).toMatch(/<h1>dashboard<\/h1>/);
         done();
       });
