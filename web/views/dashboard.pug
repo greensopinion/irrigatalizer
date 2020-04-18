@@ -41,19 +41,19 @@ block content
   h1 #{title}
   div.dashboard
     div.controls
-      div 
+      .control 
         span.label status: 
         if status.running
           i.material-icons toggle_on
         else
           i.material-icons toggle_off
-      div 
+      .control
         if status.running
           span.label current: 
           span.time#currentTime
             script.
               setupCountDown("currentTime","#{status.current.end}")
-      div 
+      .control
         if status.next && status.next.start
           span.label next: 
           span.time#nextTime

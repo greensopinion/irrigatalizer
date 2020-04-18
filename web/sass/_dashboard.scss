@@ -4,18 +4,22 @@
     flex-wrap: wrap;
     justify-content: space-between;
 
-    div {
+    .control {
       margin-left: $spacing-unit;
+
+      .time {
+        font-weight: bold;
+      }
     }
 
-    .time {
-      font-weight: bold;
-    }
-
-    @include media-query($on-laptop) {
+    @include media-query($on-palm) {
       .label {
         min-width: 60px;
         display: inline-block;
+      }
+
+      .control {
+        width: 100%;
       }
     }
   }
