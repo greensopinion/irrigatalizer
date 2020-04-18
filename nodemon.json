@@ -1,0 +1,8 @@
+{
+  "verbose": true,
+  "ignore": ["*.spec.js", "build/*"],
+  "ext": "*.js,*.pug,*.scss,*.json",
+  "events": {
+    "restart": "npm run build"
+  }
+}
