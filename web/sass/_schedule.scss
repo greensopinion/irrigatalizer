@@ -1,28 +1,30 @@
 .schedule {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 
-}
+    .day {
+        flex: 1 1 0;
+        width: 0;
+        min-width: 100px;
+        border: 1px solid $grey-color-dark;
+        padding: $spacing-unit/4;
+        margin: $spacing-unit/2 $spacing-unit/2 0 0;
 
-.day {
-    flex: 1 1 0;
-    width: 0;
-    min-width: 100px;
-    border: 1px solid $grey-color-dark;
-    padding: 1em;
-    margin-right: 1em;
+        h2 {
+            font-size: medium;
+        }
 
-    h2 {
-        font-size: medium;
-    }
-    .minutesPastHour30 {
-        border-top: 1px solid $grey-color-light;
-    }
-    .minutesPastHour0 {
-        border-top: 1px solid $grey-color;
+        .minutesPastHour30 {
+            border-top: 1px solid $grey-color-light;
+        }
 
-    }
-    .time:last-child() {
-        border-bottom: 1px solid $grey-color;
+        .minutesPastHour0 {
+            border-top: 1px solid $grey-color;
+
+        }
+
+        .time:last-child() {
+            border-bottom: 1px solid $grey-color;
+        }
     }
 }
