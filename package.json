@@ -18,7 +18,7 @@
     "start": "node index.js",
     "start-dev": "npx nodemon index.js",
     "test": "jest",
-    "copy-resources": "mkdir -p web/static/styles && cp node_modules/bootstrap/dist/css/bootstrap.min.css web/static/styles",
+    "copy-resources": "mkdir -p web/static/styles && mkdir -p web/static/js && cp node_modules/bootstrap/dist/css/bootstrap.min.css web/static/styles && cp node_modules/axios/dist/axios.min.js  web/static/js",
     "build": "npm run copy-resources && npm run sass",
     "sass": "node-sass web/sass -o web/static/styles",
     "clean": "rm -rf build",
@@ -37,6 +37,7 @@
   "devDependencies": {
     "@babel/cli": "^7.8.4",
     "@babel/preset-env": "^7.9.5",
+    "axios": "^0.19.2",
     "babel-jest": "^25.3.0",
     "bootstrap": "^4.4.1",
     "jest": "^25.3.0",

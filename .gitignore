@@ -2,5 +2,6 @@
 /coverage
 /web/static/styles/main.css
 /web/static/styles/bootstrap*.css
+/web/static/js
 /build
 .DS_Store

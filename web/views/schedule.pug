@@ -59,18 +59,50 @@ block content
       return entry;
     }
 
+    function showError(message) {
+      const errorElement = document.getElementById("dialogError");
+      errorElement.innerHTML = "";
+      if (message) {
+        const textNode = document.createTextNode(message);
+        errorElement.appendChild(textNode);
+        errorElement.style.display = "block";
+      } else {
+        errorElement.style.display = "none";
+      }
+    }
+
+    function hideDialog() {
+        getDialogElement().style.display = "none";
+        showError(null);
+    }
+
     function saveEntry() {
+      const newEntry = createEntryFromForm();
+      if (calculateEntryTotalTime(newEntry)<=0) {
+        showError("Schedule has no effect!");
+        return;
+      }
+
       model.schedule = model.schedule.filter(e => e !== originalEntry);
-      model.schedule.push(createEntryFromForm());
-      originalEntry = null;
-      getDialogElement().style.display = "none";
-      updateScheduleDisplay();
+      model.schedule.push(newEntry);
+      originalEntry = newEntry;
+      
+      axios.put('/api/schedule',model).then((response)=> {
+        originalEntry = null;
+        showError("");
+        hideDialog();
+        updateScheduleDisplay();
+      }, (error) => {
+        var message = (error.response && error.response.data && error.response.data.error)?error.response.data.error:error;
+        showError(message);
+        console.log(error);
+      });
     }
 
     function deleteEntry() {
       model.schedule = model.schedule.filter(e => e !== originalEntry);
       originalEntry = null;
-      getDialogElement().style.display = "none";
+      hideDialog();
       updateScheduleDisplay();
     }
 
@@ -85,13 +117,17 @@ block content
       presentEntryEditor(workingCopy,true);
     }
 
+    function calculateEntryTotalTime(e) {
+      const circuitsEnabled = Object.values(e.circuits).filter(c => c).length;
+      return totalTime = circuitsEnabled * e.duration;
+    }
+
     function findEntry(day,time) {
       return model.schedule.find(e => {
         if (e.day.offset != day.offset) {
           return false;
         }
-        const circuitsEnabled = Object.values(e.circuits).filter(c => c).length;
-        const totalTime = circuitsEnabled * e.duration;
+        const totalTime = calculateEntryTotalTime(e);
         return e.start.offset <= time.offset && time.offset < (e.start.offset+totalTime);
       });
     }
@@ -113,7 +149,7 @@ block content
     }
 
     function cancelEditEntry() {
-      getDialogElement().style.display = "none";
+      hideDialog();
     }
 
     function updateScheduleDisplay() {
@@ -136,6 +172,7 @@ block content
       div.header#editEntryTitle
         | Title
       div.content
+        div.alert.alert-danger#dialogError(role="alert", style="display: none;")
         form
           div.form-group
             label(for=entryDuration) Circuit Duration
