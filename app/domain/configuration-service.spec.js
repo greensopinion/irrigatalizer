@@ -13,6 +13,7 @@ describe("configuration-service", () => {
 
   afterEach(() => {
     mockFs.restore();
+    service.clearState();
   });
 
   const fileExists = async (filename) => {
@@ -24,13 +25,23 @@ describe("configuration-service", () => {
     }
   };
 
-  it("should retrieve a configuration", async () => {
+  it("should retrieve a configuration when no file exists", async () => {
     expect(service.retrieve).toBeDefined();
     expect(await fileExists(service.getConfigurationFile())).toBe(false);
     expect(await service.retrieve()).toMatchObject({
       schedule: [],
     });
     expect(await fileExists(service.getConfigurationFile())).toBe(false);
+  });
+
+  it("should retrieve a configuration from a file", async () => {
+    let mockConfiguration = { "is a test": true };
+    const files = {};
+    files[service.getConfigurationFolder()] = {
+      "configuration.json": JSON.stringify(mockConfiguration),
+    };
+    mockFs(files);
+    expect(await service.retrieve()).toEqual(mockConfiguration);
   });
 
   it("should not have side-effects when model is changed", async () => {
@@ -40,6 +51,7 @@ describe("configuration-service", () => {
   });
 
   it("should write a configuration", async () => {
+    mockFs({});
     expect(service.update).toBeDefined();
     var configuration = await service.retrieve();
     configuration["is a test"] = true;

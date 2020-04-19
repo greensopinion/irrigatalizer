@@ -40,9 +40,14 @@ const update = async (newConfig) => {
   configuration = copy(newConfig);
 };
 
+const clearState = () => {
+  configuration = null;
+};
+
 module.exports = {
   retrieve,
   update,
+  clearState,
   getConfigurationFolder: () => {
     return configurationFolder;
   },
