@@ -2,10 +2,160 @@ extends default
 
 block content
   h1 #{title}
+  script
+    - var model = JSON.stringify(schedule)
+    - var daysOfWeek = JSON.stringify(days);
+    - var offsetsOfDay = JSON.stringify(times);
+    | const model = !{model};
+    | const circuitIndexes = [1,2,3,4,5,6,7,8];
+    | const daysOfWeek = !{daysOfWeek};
+    | const offsetsOfDay = !{offsetsOfDay};
+  script.
+    function getDialogElement() {
+      return document.getElementById('scheduleEntryDialog');
+    }
+
+    function presentEntryEditor(entry,editing) {
+      const dialog = getDialogElement();
+      dialog.style.display = "block";
+      const deleteButton = document.getElementById('deleteEntryButton');
+      if (editing) {
+        deleteButton.style.display = "inline-block";
+      } else {
+        deleteButton.style.display = "none";
+      }
+      const editEntryTitle = document.getElementById('editEntryTitle');
+      if (editing) {
+        editEntryTitle.innerHTML = `Edit Schedule: ${entry.day.name} ${entry.start.name}`;
+      } else {
+        editEntryTitle.innerHTML = `New Schedule: ${entry.day.name} ${entry.start.name}`;
+      }
+      const entryDuration = document.getElementById('entryDuration');
+      entryDuration.value = entry.duration;
+      for (let i of circuitIndexes) {
+        const checkbox = document.getElementById(`entryCircuit${i}`);
+        if (entry.circuits[i]) {
+          checkbox.checked = true;
+        } else {
+          checkbox.checked = false;
+        }
+      }
+    }
+    let originalEntry;
+
+    function createEntryFromForm() {
+      var entry = JSON.parse(JSON.stringify(originalEntry));
+
+      const entryDuration = document.getElementById('entryDuration');
+      entry.duration = Number(entryDuration.value);
+
+      entry.circuits = {};
+      for (let i of circuitIndexes) {
+        const checkbox = document.getElementById(`entryCircuit${i}`);
+        if (checkbox.checked) {
+          entry.circuits[i]=true;
+        }
+      }
+      return entry;
+    }
+
+    function saveEntry() {
+      model.schedule = model.schedule.filter(e => e !== originalEntry);
+      model.schedule.push(createEntryFromForm());
+      originalEntry = null;
+      getDialogElement().style.display = "none";
+      updateScheduleDisplay();
+    }
+
+    function deleteEntry() {
+      model.schedule = model.schedule.filter(e => e !== originalEntry);
+      originalEntry = null;
+      getDialogElement().style.display = "none";
+      updateScheduleDisplay();
+    }
+
+    function createEntry(entry) {
+      originalEntry = entry;
+      presentEntryEditor(entry,false);
+    }
+
+    function updateEntry(entry) {
+      originalEntry = entry;
+      const workingCopy = JSON.parse(JSON.stringify(originalEntry));
+      presentEntryEditor(workingCopy,true);
+    }
+
+    function findEntry(day,time) {
+      return model.schedule.find(e => {
+        if (e.day.offset != day.offset) {
+          return false;
+        }
+        const circuitsEnabled = Object.values(e.circuits).filter(c => c).length;
+        const totalTime = circuitsEnabled * e.duration;
+        return e.start.offset <= time.offset && time.offset < (e.start.offset+totalTime);
+      });
+    }
+
+
+    function editEntry(day,time) {
+      var existing = findEntry(day,time);
+      if (existing) {
+        updateEntry(existing);
+      } else {
+        const newEntry = {
+          day,
+          start: time,
+          duration: 15,
+          circuits: {}
+        };
+        createEntry(newEntry);
+      }
+    }
+
+    function cancelEditEntry() {
+      getDialogElement().style.display = "none";
+    }
+
+    function updateScheduleDisplay() {
+      for (let day of daysOfWeek) {
+        for (let dayOffset of offsetsOfDay) {
+          const id = `day${day.offset}time${dayOffset.offset}`;
+          const element = document.getElementById(id);
+          const entry = findEntry(day,dayOffset);
+          if (entry) {
+            element.classList.add("scheduled");
+          } else {
+            element.classList.remove("scheduled");
+          }
+        }
+      }
+    }
+
+  div#scheduleEntryDialog
+    div.dialogContent.shadow-lg.bg-white.rounded
+      div.header#editEntryTitle
+        | Title
+      div.content
+        form
+          div.form-group
+            label(for=entryDuration) Circuit Duration
+            input.form-control#entryDuration(type="number",min=5,max=30,step=5)
+          div.form-group.form-check
+            each index in [1, 2, 3, 4, 5, 6, 7, 8]
+              div.checkbox-group
+                input.form-check-input&attributes({type:"checkbox",id:`entryCircuit${index}`})
+                label.form-check-label&attributes({for:`entryCircuit${index}`}) Circuit #{index}
+      div.footer
+        button.btn.btn-outline-secondary(type="button",onclick="cancelEditEntry()") Cancel
+        button.btn.btn-outline-danger#deleteEntryButton(type="button",onclick="deleteEntry()") Delete
+        button.btn.btn-outline-primary(type="button",onclick="saveEntry()") Save
   div.schedule
-    each day in schedule.days
+    each day in days
         div.day
             h2 #{day.name}
             each time in times
-                div.time&attributes({class:`minutesPastHour${time.offset%60}`})
-                    | #{time.name}
+                - var al = `editEntry(${JSON.stringify(day)},${JSON.stringify(time)})`
+                div.time(onclick=al)&attributes({class:`minutesPastHour${time.offset%60}`,id: `day${day.offset}time${time.offset}`})
+                  | #{time.name}
+  script.
+    updateScheduleDisplay();
