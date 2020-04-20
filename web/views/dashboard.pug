@@ -15,13 +15,13 @@ block content
         text = `${days} days`;
       }
       if (hours > 0) {
-        text = `${text} ${hours} hours`;
+        text = `${text} ${hours}h`;
       }
       if (minutes > 0) {
-        text = `${text} ${minutes} minutes`;
+        text = `${text} ${minutes}m`;
       }
       if (minutes < 2 && seconds > 0) {
-        text = `${text} ${seconds} seconds`;
+        text = `${text} ${seconds}s`;
       }
       return text.replace(/\s{2,}/," ").trim();
     }
@@ -44,22 +44,24 @@ block content
     div.controls
       .control 
         span.label status: 
-        if status.running
+        if status.running === true
           i.material-icons toggle_on
         else
-          i.material-icons toggle_off
+          i.material-icons-outlined toggle_off
       .control
         if status.running
           span.label current: 
           span.time#currentTime
             script.
               setupCountDown("currentTime","#{status.current.end}")
+          span
+            | &nbsp;remaining, circuit #{status.current.circuit}
       .control
         if status.next && status.next.start
-          span.label next: 
+          span.label next:
+          span starts in&nbsp;
           span.time#nextTime
             script.
               setupCountDown("nextTime","#{status.next.start}")
-          span.duration#nextDuration
-            script.
-              document.getElementById("nextDuration").innerHTML = " ("+ remainingTime(Date.parse("#{status.next.start}"),Date.parse("#{status.next.end}"))+")";
+          span
+            | , circuit #{status.next.circuit}

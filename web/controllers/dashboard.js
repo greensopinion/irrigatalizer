@@ -20,7 +20,7 @@ exports.handler = async (req, res) => {
     let model = {
       title: "dashboard",
       status: {
-        running: current != null,
+        running: !!current,
         current,
         next,
       },

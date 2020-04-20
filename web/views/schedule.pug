@@ -76,17 +76,7 @@ block content
         showError(null);
     }
 
-    function saveEntry() {
-      const newEntry = createEntryFromForm();
-      if (calculateEntryTotalTime(newEntry)<=0) {
-        showError("Schedule has no effect!");
-        return;
-      }
-
-      model.schedule = model.schedule.filter(e => e !== originalEntry);
-      model.schedule.push(newEntry);
-      originalEntry = newEntry;
-      
+    function saveSchedule() {
       axios.put('/api/schedule',model).then((response)=> {
         originalEntry = null;
         showError("");
@@ -99,11 +89,24 @@ block content
       });
     }
 
+    function saveEntry() {
+      const newEntry = createEntryFromForm();
+      if (calculateEntryTotalTime(newEntry)<=0) {
+        showError("Schedule has no effect!");
+        return;
+      }
+
+      model.schedule = model.schedule.filter(e => e !== originalEntry);
+      model.schedule.push(newEntry);
+      originalEntry = newEntry;
+      
+      saveSchedule();
+    }
+
     function deleteEntry() {
       model.schedule = model.schedule.filter(e => e !== originalEntry);
       originalEntry = null;
-      hideDialog();
-      updateScheduleDisplay();
+      saveSchedule();
     }
 
     function createEntry(entry) {
