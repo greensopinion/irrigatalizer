@@ -1,20 +1,28 @@
+const scheduleService = require("../../app/schedule-service");
+
+const entryToViewModel = (item) => {
+  return {
+    circuit: item.circuit,
+    start: new Date(item.effectiveStartTime).toISOString(),
+    end: new Date(item.effectiveEndTime).toISOString(),
+  };
+};
+
 exports.handler = async (req, res) => {
   try {
-    let now = Date.now();
+    const schedule = await scheduleService.retrieve();
+
+    const current = schedule.current
+      ? entryToViewModel(schedule.current)
+      : null;
+    const next = schedule.next ? entryToViewModel(schedule.next) : null;
+
     let model = {
       title: "dashboard",
       status: {
-        running: true,
-        current: {
-          circuit: 3,
-          start: new Date(now - 60 * 1000 * 5).toISOString(),
-          end: new Date(now + 60 * 1000 * 25).toISOString(),
-        },
-        next: {
-          circuit: 3,
-          start: new Date(now + 60 * 1000 * 25).toISOString(),
-          end: new Date(now + 60 * 1000 * 55).toISOString(),
-        },
+        running: current != null,
+        current,
+        next,
       },
     };
     res.render("dashboard", model);

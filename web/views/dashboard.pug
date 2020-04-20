@@ -20,7 +20,7 @@ block content
       if (minutes > 0) {
         text = `${text} ${minutes} minutes`;
       }
-      if (seconds > 0) {
+      if (minutes < 2 && seconds > 0) {
         text = `${text} ${seconds} seconds`;
       }
       return text.replace(/\s{2,}/," ").trim();
