@@ -1,21 +1,18 @@
 const scheduleService = require("../../app/domain/configuration-service");
+const timeOfDay = require("../../app/time-of-day");
 
 let createTimes = () => {
   let times = [];
   for (let hour = 0; hour < 24; hour++) {
-    var h12 = hour;
-    var suffix = "am";
-    if (hour > 12) {
-      h12 = h12 - 12;
-      suffix = "pm";
-    }
+    let offset = hour * 60;
     times.push({
-      name: `${h12}:00 ${suffix}`,
-      offset: hour * 60,
+      name: timeOfDay(offset),
+      offset,
     });
+    offset += 30;
     times.push({
-      name: `${h12}:30`,
-      offset: hour * 60 + 30,
+      name: timeOfDay(offset),
+      offset
     });
   }
   return times;
