@@ -8,7 +8,7 @@ describe("routes", () => {
       use: jest.fn()
     };
     routes.createRoutes(mockApp);
-    expect(mockApp.use).toHaveBeenCalledWith("/api/status", status.router);
-    expect(mockApp.use).toHaveBeenCalledWith("/api/schedule", schedule.router);
+    expect(mockApp.use).toHaveBeenCalledWith("/api/status",expect.any(Function), status.router);
+    expect(mockApp.use).toHaveBeenCalledWith("/api/schedule",expect.any(Function), schedule.router);
   });
 });
