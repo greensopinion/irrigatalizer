@@ -47,7 +47,10 @@ describe("schedule", () => {
 
     it("should put a schedule", (done) => {
       const mockConfiguration = {
-        schedule: ["mock-schedule"],
+        schedule: [],
+      };
+      configurationService.retrieve = async () => {
+        return mockConfiguration;
       };
 
       request(app)
