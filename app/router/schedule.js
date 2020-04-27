@@ -1,6 +1,7 @@
 const router = require("express").Router();
 
 const configurationService = require("../domain/configuration-service");
+const scheduler = require("../scheduler");
 
 const statusHandler = async (request, response) => {
   const configuration = await configurationService.retrieve();
@@ -13,6 +14,7 @@ const updateHandler = async (request, response) => {
     response.status(400).json({ error: "Expected schedule" });
   } else {
     await configurationService.update(model);
+    await scheduler.restart();
     response.status(200).json({});
   }
 };

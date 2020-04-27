@@ -9,7 +9,7 @@ const getNow = () => new Date(Date.now());
 const applyEffectiveTimes = (time, schedule) => {
   const date = new Date(time);
   date.setHours(0, 0, 0, 0);
-  const timeOffset = time.getTime() - date.getTime()
+  const timeOffset = time.getTime() - date.getTime();
   const dayOfWeek = date.getDay();
   for (let entry of schedule) {
     var entryDaysDifference = 0;
@@ -17,14 +17,18 @@ const applyEffectiveTimes = (time, schedule) => {
       entryDaysDifference = entry.day.offset - dayOfWeek;
     } else if (entry.day.offset < dayOfWeek) {
       entryDaysDifference = entry.day.offset + 7 - dayOfWeek;
-    } else if ((entry.start.offset*MINUTE_IN_MILLIS) < timeOffset) {
+    } else if (
+      (entry.start.offset + entry.duration) * MINUTE_IN_MILLIS <
+      timeOffset
+    ) {
       entryDaysDifference = 7;
     }
     entry.effectiveStartTime =
       date.getTime() +
       entryDaysDifference * DAY_IN_MILLIS +
       entry.start.offset * MINUTE_IN_MILLIS;
-    entry.effectiveEndTime = entry.effectiveStartTime + (entry.duration * MINUTE_IN_MILLIS);
+    entry.effectiveEndTime =
+      entry.effectiveStartTime + entry.duration * MINUTE_IN_MILLIS;
 
     const circuitsEnabled = Object.values(entry.circuits).filter((c) => c)
       .length;
@@ -33,8 +37,7 @@ const applyEffectiveTimes = (time, schedule) => {
   return schedule;
 };
 
-const sortedSchedule = (time,simplifiedSchedule) => {
-  const schedule = applyEffectiveTimes(time, simplifiedSchedule);
+const sortedSchedule = (time, schedule) => {
   return schedule.sort((a, b) => {
     if (a.effectiveStartTime < b.effectiveStartTime) {
       return -1;
@@ -52,10 +55,11 @@ const oneCircuitPerEntry = (entry) => {
     if (value) {
       let thisOffset = index++;
       let newEntry = JSON.parse(JSON.stringify(entry));
-      newEntry.circuits = {}
+      newEntry.circuits = {};
       newEntry.circuits[key] = true;
-      newEntry.start.offset = (thisOffset*newEntry.duration)+entry.start.offset;
-      newEntry.start.name = timeOfDay(newEntry.start.offset)
+      newEntry.start.offset =
+        thisOffset * newEntry.duration + entry.start.offset;
+      newEntry.start.name = timeOfDay(newEntry.start.offset);
       perCircuitEntries.push(newEntry);
     }
   }
@@ -63,22 +67,27 @@ const oneCircuitPerEntry = (entry) => {
 };
 const applyDurationToMillis = (entry) => {
   return {
-      circuit: Number(Object.keys(entry.circuits)[0]),
-      duration: entry.duration * MINUTE_IN_MILLIS,
-      effectiveStartTime: entry.effectiveStartTime,
-      effectiveEndTime: entry.effectiveEndTime
+    circuit: Number(Object.keys(entry.circuits)[0]),
+    duration: entry.duration * MINUTE_IN_MILLIS,
+    effectiveStartTime: entry.effectiveStartTime,
+    effectiveEndTime: entry.effectiveEndTime,
   };
 };
 
 const retrieve = async () => {
   const now = getNow();
+  const nowTime = now.getTime();
 
   const configuration = await configurationService.retrieve();
   const schedule = configuration.schedule || [];
-  const simplifiedSchedule = schedule.flatMap(oneCircuitPerEntry);
-  const perCircuitSchedule = sortedSchedule(now,simplifiedSchedule).map(applyDurationToMillis);
+  const simplifiedSchedule = applyEffectiveTimes(
+    now,
+    schedule.flatMap(oneCircuitPerEntry)
+  );
+  const perCircuitSchedule = sortedSchedule(now, simplifiedSchedule).map(
+    applyDurationToMillis
+  );
 
-  const nowTime = now.getTime();
   const nextEntries = perCircuitSchedule.filter(
     (e) => e.effectiveEndTime > nowTime
   );
@@ -96,5 +105,5 @@ const retrieve = async () => {
 };
 
 module.exports = {
-  retrieve
+  retrieve,
 };

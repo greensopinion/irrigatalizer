@@ -5,6 +5,13 @@ $ node index.js
 Server listening on port 8000...
 ```
 
+## Start Development Mode
+
+```sh
+$ npm run start-dev
+Server listening on port 8000...
+```
+
 ## Pi Setup
 
 ### NodeJS 12
