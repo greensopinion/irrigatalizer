@@ -1,5 +1,6 @@
 const scheduleService = require("./schedule-service");
 const circuitService = require("./circuit-service");
+const duration = require("./duration");
 
 const start = async () => {
   await restart();
@@ -9,27 +10,32 @@ const turnAllCircuitsOff = async () => {
   await Promise.all(circuitService.allCircuits().map((c) => c.off()));
 };
 
-const shutdown = async () => {
-  console.log("shutting down scheduler");
-  await turnAllCircuitsOff();
-  console.log("scheduler is shut down");
-};
-
 const logWakeUp = (ms) => {
   console.log(
-    `scheduler waking up in ${ms / 1000}s at ${new Date(
+    `scheduler waking up in ${duration(ms)} at ${new Date(
       Date.now() + ms
     ).toString()}`
   );
 };
 
 var timer = null;
-const restart = async () => {
+const clearTimer = () => {
   if (timer) {
     clearTimeout(timer);
     timer = null;
   }
-  console.log("starting scheduler");
+};
+
+const shutdown = async () => {
+  clearTimer();
+  console.log("shutting down scheduler");
+  await turnAllCircuitsOff();
+  await Promise.all(circuitService.allCircuits().forEach((c) => c.close()));
+  console.log("scheduler is shut down");
+};
+
+const applySchedule = async () => {
+  clearTimer();
 
   const schedule = await scheduleService.retrieve();
   const now = Date.now();
@@ -61,8 +67,14 @@ const restart = async () => {
     logWakeUp(nextThingToDoTime);
     timer = setTimeout(restart, nextThingToDoTime);
   } else {
-    console.log("scheduler has nothing to do, shutting down");
+    console.log("scheduler has nothing to do, stopping");
   }
+};
+
+const restart = async () => {
+  clearTimer();
+  console.log("starting scheduler");
+  await applySchedule();
 };
 
 module.exports = {

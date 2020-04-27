@@ -1,20 +1,29 @@
+const gpioCircuit = require("./gpio-circuit");
+
 var circuitNumberToEntry = {};
 
 const createEntry = (number) => {
+  const gpio = gpioCircuit.create(number);
   return {
     circuit: number,
     isOn: false,
+    gpio,
     on: async function () {
       if (!this.isOn) {
         console.log(`turning circuit on: ${this.circuit}`);
+        await this.gpio.on();
         this.isOn = true;
       }
     },
     off: async function () {
       if (this.isOn) {
         console.log(`turning circuit off: ${this.circuit}`);
+        await this.gpio.off();
         this.isOn = false;
       }
+    },
+    close: async function () {
+      await this.gpio.close();
     },
   };
 };
