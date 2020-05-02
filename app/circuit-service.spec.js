@@ -1,4 +1,5 @@
 const circuitService = require("./circuit-service");
+jest.mock("onoff");
 
 describe("circuit-service", () => {
   afterEach(() => {
@@ -24,9 +25,12 @@ describe("circuit-service", () => {
   it("turns a circuit on and off", async () => {
     const circuit = circuitService.circuit(1);
     expect(circuit.isOn).toBe(false);
+    expect(circuit.gpio.gpio.written).toBeUndefined();
     await circuit.on();
     expect(circuit.isOn).toBe(true);
+    expect(circuit.gpio.gpio.written).toBe(1);
     await circuit.off();
     expect(circuit.isOn).toBe(false);
+    expect(circuit.gpio.gpio.written).toBe(0);
   });
 });

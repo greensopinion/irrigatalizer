@@ -7,3 +7,4 @@
 - jest.config.js
 - coverage/
 - *.sh
+- __mocks__/
