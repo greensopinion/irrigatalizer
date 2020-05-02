@@ -4,7 +4,7 @@ const historyFile = `history.json`;
 
 const copy = (c) => JSON.parse(JSON.stringify(c));
 
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 200;
 
 var model;
 

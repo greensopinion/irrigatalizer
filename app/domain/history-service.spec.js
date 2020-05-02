@@ -64,12 +64,13 @@ describe("history-service", () => {
   });
 
   it("should truncate history", async () => {
-    for (let x = 0; x < 120; ++x) {
+    const max = 200;
+    for (let x = 0; x < max + 20; ++x) {
       await service.addEntries([{ id: `entry ${x}` }]);
     }
     const entries = await service.readEntries();
-    expect(entries.length).toEqual(100);
-    expect(entries[0]).toEqual({ id: "entry 20" });
-    expect(entries[99]).toEqual({ id: "entry 119" });
+    expect(entries.length).toEqual(max);
+    expect(entries[0]).toEqual({ id: `entry 20` });
+    expect(entries[max - 1]).toEqual({ id: `entry ${max + 19}` });
   });
 });
