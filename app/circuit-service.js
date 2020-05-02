@@ -1,4 +1,5 @@
 const gpioCircuit = require("./gpio-circuit");
+const logger = require("./logger");
 
 var circuitNumberToEntry = {};
 
@@ -10,14 +11,14 @@ const createEntry = (number) => {
     gpio,
     on: async function () {
       if (!this.isOn) {
-        console.log(`turning circuit on: ${this.circuit}`);
+        logger.log(`turning circuit on: ${this.circuit}`);
         await this.gpio.on();
         this.isOn = true;
       }
     },
     off: async function () {
       if (this.isOn) {
-        console.log(`turning circuit off: ${this.circuit}`);
+        logger.log(`turning circuit off: ${this.circuit}`);
         await this.gpio.off();
         this.isOn = false;
       }
