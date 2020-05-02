@@ -7,35 +7,36 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   sodipodi:docname="irrigatalizer-logo.svg"
-   inkscape:version="1.1-dev (ddb55ca, 2020-02-02)"
-   id="svg8"
-   version="1.1"
-   viewBox="0 0 135.46666 135.46666"
+   width="512"
    height="512"
-   width="512">
+   viewBox="0 0 135.46666 135.46666"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.1-dev (ddb55ca, 2020-02-02)"
+   sodipodi:docname="irrigatalizer-logo.svg">
   <defs
      id="defs2" />
   <sodipodi:namedview
-     inkscape:window-maximized="0"
-     inkscape:window-y="23"
-     inkscape:window-x="0"
-     inkscape:window-height="1034"
-     inkscape:window-width="1876"
-     units="px"
-     inkscape:pagecheckerboard="true"
-     showgrid="false"
-     inkscape:current-layer="layer1"
-     inkscape:document-units="px"
-     inkscape:cy="292.61295"
-     inkscape:cx="261.06118"
-     inkscape:zoom="1.23"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0.0"
-     borderopacity="1.0"
-     bordercolor="#666666"
+     inkscape:snap-object-midpoints="false"
+     id="base"
      pagecolor="#ffffff"
-     id="base" />
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.51316815"
+     inkscape:cx="261.06118"
+     inkscape:cy="295.23952"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer2"
+     showgrid="false"
+     inkscape:pagecheckerboard="true"
+     units="px"
+     inkscape:window-width="1876"
+     inkscape:window-height="1034"
+     inkscape:window-x="0"
+     inkscape:window-y="23"
+     inkscape:window-maximized="0" />
   <metadata
      id="metadata5">
     <rdf:RDF>
@@ -44,31 +45,55 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <g
-     id="layer1"
+     sodipodi:insensitive="true"
+     inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     inkscape:label="Layer 1">
+     id="layer1">
     <path
-       sodipodi:nodetypes="ccccccc"
-       inkscape:connector-curvature="0"
-       id="path833"
+       style="fill:#2662f5;fill-opacity:1;stroke:#3a61c1;stroke-width:0.665;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        d="M 30.066285,6.6145829 C 74.671645,21.347063 108.36442,50.511361 111.54592,70.956436 113.68925,92.504099 108.74873,106.37758 101.32339,117.55918 87.689535,133.65444 61.768756,141.1607 40.589486,121.76846 30.259994,110.65291 27.114962,94.097851 36.981532,83.884939 46.710147,72.779493 54.18753,71.382138 54.923528,59.863687 55.304715,40.420242 39.117555,18.555385 30.066285,6.6145829 Z"
-       style="fill:#336eff;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
-    <path
-       sodipodi:nodetypes="ccccc"
+       id="path833"
        inkscape:connector-curvature="0"
-       id="path835"
+       sodipodi:nodetypes="ccccccc" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 91.525922,60.713165 11.155628,7.734292 c 0.0853,3.207577 0.94257,4.867739 -1.18848,7.188604 -1.643332,1.434501 -4.085113,1.312474 -6.131103,-0.304464 -3.846302,-3.819476 -0.892862,-7.949691 -3.836045,-14.618432 z"
-       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+       id="path835"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 111.99787,84.24636 c -9.33044,4.601895 -23.263057,-3.718161 -33.978337,-8.475349 7.879627,14.760464 20.888716,18.261566 32.515557,20.294856 1.12628,-6.219717 1.3191,-8.546307 1.46278,-11.819507 z"
+       id="path863"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccc" />
+  </g>
+  <g
+     inkscape:label="Shadow"
+     id="layer2"
+     inkscape:groupmode="layer">
     <path
        sodipodi:nodetypes="cccc"
        inkscape:connector-curvature="0"
-       id="path863"
-       d="m 111.99787,84.24636 c -9.33044,4.601895 -23.263057,-3.718161 -33.978337,-8.475349 7.879627,14.760464 20.888716,18.261566 32.515557,20.294856 1.12628,-6.219717 1.3191,-8.546307 1.46278,-11.819507 z"
-       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+       id="path842"
+       d="m 109.08983,101.65365 c -11.856936,16.48055 -28.603066,32.85794 -64.777502,23.32433 13.500079,10.12257 29.630318,11.33513 46.248303,2.15108 11.195959,-6.92584 15.760999,-16.89413 18.529199,-25.47541 z"
+       style="fill:#2b52b0;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       inkscape:connector-curvature="0"
+       id="path844"
+       d="M 58.356696,46.734811 C 60.101776,62.590822 62.420753,69.939868 40.539491,87.385698 58.61892,74.05589 59.386116,79.298724 61.99236,75.010975 65.345367,62.985419 62.092917,54.290774 58.356696,46.734811 Z"
+       style="fill:#5682ec;fill-opacity:1;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+    <path
+       sodipodi:nodetypes="cccc"
+       inkscape:connector-curvature="0"
+       id="path846"
+       d="m 55.086665,18.678811 c 15.916409,8.116498 30.857528,17.403343 42.581357,30.550937 L 90.228156,48.913159 C 80.928765,38.03023 68.113623,28.319218 55.086665,18.678811 Z"
+       style="fill:#5682ec;stroke:none;stroke-width:0.26458300000000001px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;fill-opacity:1" />
   </g>
 </svg>
