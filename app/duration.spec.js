@@ -16,4 +16,12 @@ describe("duration", () => {
   it("should provide a string", () => {
     expect(duration(52954153)).toEqual("14h 42m 34s");
   });
+
+  it("should provide a string for multiple days", () => {
+    expect(duration(582954153)).toEqual("6 days 17h 55m 54s");
+  });
+
+  it("should provides an abbreviated string when hours and seconds are 0", () => {
+    expect(duration(259380000)).toEqual("3 days 3m");
+  });
 });

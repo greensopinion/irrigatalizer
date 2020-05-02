@@ -6,12 +6,18 @@ const onoff = require("onoff");
 
 describe("gpio-circuit", () => {
 
-    it("creates a circuit", () => {
-        const circuit = gpioCircuit.create(1);
-        expect(circuit).toBeDefined();
-        expect(circuit.gpio).toBeDefined();
-        expect(circuit.gpio.pin).toEqual(18);
-        expect(circuit.gpio.direction).toEqual("out");
+    describe("create", () => {
+        it("creates a circuit", () => {
+            const circuit = gpioCircuit.create(1);
+            expect(circuit).toBeDefined();
+            expect(circuit.gpio).toBeDefined();
+            expect(circuit.gpio.pin).toEqual(18);
+            expect(circuit.gpio.direction).toEqual("out");
+        });
+
+        it("rejects a circuit for an unknown circuit number", () => {
+            expect(() => gpioCircuit.create(999)).toThrow(new Error("No GPIO pin for 999"));
+        });
     });
 
     describe("circuit", () => {
