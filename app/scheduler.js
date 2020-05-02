@@ -3,6 +3,7 @@ const scheduleService = require("./schedule-service");
 const circuitService = require("./circuit-service");
 const duration = require("./duration");
 
+const history = require("./domain/history-service");
 
 const turnAllCircuitsOff = async () => {
   await Promise.all(circuitService.allCircuits().map((c) => c.off()));
@@ -28,6 +29,7 @@ const shutdown = async () => {
   clearTimer();
   logger.log("shutting down scheduler");
   await turnAllCircuitsOff();
+  await writeHistory();
   await Promise.all(circuitService.allCircuits().map((c) => c.close()));
   logger.log("scheduler is shut down");
 };
@@ -43,13 +45,39 @@ const findStartCicruit = (schedule, time) => {
 
 const circuitAboutToChange = (circuitToStart) => {
   const onCircuits = circuitService.allCircuits().filter((c) => c.isOn);
-  return onCircuits.length > 0 && (!circuitToStart || onCircuits[0].circuit !== circuitToStart.circuit);
+  return (
+    onCircuits.length > 0 &&
+    (!circuitToStart || onCircuits[0].circuit !== circuitToStart.circuit)
+  );
 };
 
 const scheduleApply = async (wakeupDuration) => {
   const effectiveDuration = Math.max(wakeupDuration, 3000);
   logWakeUp(effectiveDuration);
   timer = setTimeout(applySchedule, effectiveDuration);
+};
+
+var currentCircuitHistory = null;
+const writeHistory = async () => {
+  if (currentCircuitHistory) {
+    (currentCircuitHistory.endTime = new Date(Date.now()).toISOString()),
+      await history.addEntries([currentCircuitHistory]);
+  }
+  currentCircuitHistory = null;
+};
+
+const createNewHistory = (entry) => {
+  if (currentCircuitHistory) {
+    throw new Error(
+      `Expected no current history, but got ${JSON.stringify(
+        currentCircuitHistory
+      )}`
+    );
+  }
+  currentCircuitHistory = {
+    circuit: entry.circuit,
+    startTime: new Date(Date.now()).toISOString(),
+  };
 };
 
 const applySchedule = async () => {
@@ -60,9 +88,11 @@ const applySchedule = async () => {
   const circuitToStart = findStartCicruit(schedule, now);
   if (circuitAboutToChange(circuitToStart)) {
     await turnAllCircuitsOff();
+    await writeHistory();
   }
   if (circuitToStart) {
     const circuit = circuitService.circuit(circuitToStart.circuit);
+    createNewHistory(circuitToStart);
     await circuit.on();
     scheduleApply(circuitToStart.effectiveEndTime - now);
   } else if (schedule.next) {
