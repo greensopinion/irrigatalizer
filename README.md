@@ -9,7 +9,7 @@ This project provides a NodeJS application for operating a Raspberry Pi that dri
 
 This project is in the early stages. Lots of features are missing.
 
-![CI](https://github.com/greensopinion/irrigatalizer/workflows/CI/badge.svg)
+Continuous Integration: ![CI](https://github.com/greensopinion/irrigatalizer/workflows/CI/badge.svg)
 
 ### Related
 
