@@ -9,6 +9,14 @@ This project provides a NodeJS application for operating a Raspberry Pi that dri
 
 This project is in the early stages. Lots of features are missing.
 
+### Related
+
+There are several related projects out there, most of which are more mature, have more features and are better supported:
+
+* [Open Sprinkler](https://github.com/OpenSprinkler)
+* [Raspberry Pi Controlled Irrigation System (Instructables)](https://www.instructables.com/id/Raspberry-Pi-Controlled-Irrigation-System/)
+* [SIP (Sustainable Irrigation Platform)](https://dan-in-ca.github.io/SIP/)
+
 ## Application
 
 ### Configuration
