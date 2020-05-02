@@ -2,9 +2,18 @@ const configurationService = require("./domain/configuration-service");
 const timeOfDay = require("./time-of-day");
 
 const MINUTE_IN_MILLIS = 60 * 1000;
-const DAY_IN_MILLIS = 24 * 60 * MINUTE_IN_MILLIS;
 
 const getNow = () => new Date(Date.now());
+
+const advanceToDayOfWeek = (start, dayOfWeek) => {
+  const referenceDay = dayOfWeek % 7;
+  const newDate = new Date(start);
+  newDate.setHours(0, 0, 0, 0);
+  do {
+    newDate.setDate(newDate.getDate() + 1);
+  } while (newDate.getDay() != referenceDay);
+  return newDate.getTime();
+};
 
 const applyEffectiveTimes = (time, schedule) => {
   const date = new Date(time);
@@ -23,10 +32,14 @@ const applyEffectiveTimes = (time, schedule) => {
     ) {
       entryDaysDifference = 7;
     }
+    let startDate = date;
+    if (entryDaysDifference > 0) {
+      startDate = new Date(
+        advanceToDayOfWeek(date.getTime(), entry.day.offset)
+      );
+    }
     entry.effectiveStartTime =
-      date.getTime() +
-      entryDaysDifference * DAY_IN_MILLIS +
-      entry.start.offset * MINUTE_IN_MILLIS;
+      startDate.getTime() + entry.start.offset * MINUTE_IN_MILLIS;
     entry.effectiveEndTime =
       entry.effectiveStartTime + entry.duration * MINUTE_IN_MILLIS;
 

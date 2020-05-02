@@ -22,10 +22,11 @@ describe("schedule-service", () => {
   });
 
   const create6amEntry = (dayOfWeek) => {
+    let day = dayOfWeek % 7;
     return {
       day: {
-        name: `day ${dayOfWeek}`,
-        offset: dayOfWeek,
+        name: `day ${day}`,
+        offset: day,
       },
       start: {
         name: "6 am",
@@ -40,10 +41,11 @@ describe("schedule-service", () => {
   };
 
   const create8amEntry = (dayOfWeek) => {
+    let day = dayOfWeek % 7;
     return {
       day: {
-        name: `day ${dayOfWeek}`,
-        offset: dayOfWeek,
+        name: `day ${day}`,
+        offset: day,
       },
       start: {
         name: "8 am",
@@ -124,47 +126,78 @@ describe("schedule-service", () => {
     global.Date.now = () => time;
   };
 
-  it("should schedule entries before now on the same day to a week from now", async () => {
+  const epochAtMidnight = () => {
+    const dateAtMidnight = new Date(Date.now());
+    dateAtMidnight.setHours(0, 0, 0, 0);
+    return dateAtMidnight.getTime();
+  };
+
+  const advanceToDayOfWeek = (start, dayOfWeek) => {
+    const newDate = new Date(start.getTime());
+    newDate.setHours(0, 0, 0, 0);
+    do {
+      newDate.setDate(newDate.getDate() + 1);
+    } while (newDate.getDay() != dayOfWeek);
+    return newDate.getTime();
+  };
+
+  it("should schedule entries before now on the same day to a week from nowX", async () => {
     mockDateNow();
-    const dayOfWeek = new Date(Date.now()).getDay();
+    const now = Date.now();
+    const dayOfWeek = new Date(now).getDay();
     configuration = {
       schedule: [create6amEntry(dayOfWeek), create8amEntry(dayOfWeek)],
     };
     configurationService.retrieve = jest.fn(async () => {
       return configuration;
     });
+
+    const dayStartTime = epochAtMidnight();
+    const millisPerMinute = 1000 * 60;
+    const eightAmOffset = 480 * millisPerMinute;
+    const sixAmOffset = 360 * millisPerMinute;
+    const sameDayNextWeek = advanceToDayOfWeek(
+      new Date(dayStartTime),
+      dayOfWeek
+    );
+
     expect(await service.retrieve()).toEqual({
       current: undefined,
       next: {
         circuit: 3,
-        duration: 1200000,
-        effectiveEndTime: 1587914400000,
-        effectiveStartTime: 1587913200000,
+        duration: 20 * millisPerMinute,
+        effectiveEndTime: dayStartTime + eightAmOffset + 20 * millisPerMinute,
+        effectiveStartTime: dayStartTime + eightAmOffset,
       },
       schedule: [
         {
           circuit: 3,
-          duration: 1200000,
-          effectiveEndTime: 1587914400000,
-          effectiveStartTime: 1587913200000,
+          duration: 20 * millisPerMinute,
+          effectiveStartTime: dayStartTime + eightAmOffset,
+          effectiveEndTime: dayStartTime + eightAmOffset + 20 * millisPerMinute,
         },
         {
           circuit: 4,
-          duration: 1200000,
-          effectiveStartTime: 1587914400000,
-          effectiveEndTime: 1587915600000,
+          duration: 20 * millisPerMinute,
+          effectiveStartTime:
+            dayStartTime + eightAmOffset + 20 * millisPerMinute,
+          effectiveEndTime:
+            dayStartTime + eightAmOffset + 2 * (20 * millisPerMinute),
         },
         {
           circuit: 1,
-          duration: 900000,
-          effectiveStartTime: 1588510800000,
-          effectiveEndTime: 1588511700000,
+          duration: 15 * millisPerMinute,
+          effectiveStartTime: sameDayNextWeek + sixAmOffset,
+          effectiveEndTime:
+            sameDayNextWeek + sixAmOffset + 15 * millisPerMinute,
         },
         {
           circuit: 2,
-          duration: 900000,
-          effectiveStartTime: 1588511700000,
-          effectiveEndTime: 1588512600000,
+          duration: 15 * millisPerMinute,
+          effectiveStartTime:
+            sameDayNextWeek + sixAmOffset + 15 * millisPerMinute,
+          effectiveEndTime:
+            sameDayNextWeek + sixAmOffset + 2 * 15 * millisPerMinute,
         },
       ],
     });
