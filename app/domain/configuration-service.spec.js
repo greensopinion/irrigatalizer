@@ -1,11 +1,16 @@
 const mockFs = require("mock-fs");
 const service = require("./configuration-service");
+const configurationStore = require("./configuration-store");
 const fs = require("fs").promises;
 
 describe("configuration-service", () => {
+  const configurationFile = configurationStore.getConfigurationFilePath(
+    service.getConfigurationFile()
+  );
+
   beforeEach(() => {
     const files = {};
-    files[service.getConfigurationFolder()] = {
+    files[configurationStore.getConfigurationFolder()] = {
       "somefile.txt": "some content",
     };
     mockFs(files);
@@ -27,17 +32,17 @@ describe("configuration-service", () => {
 
   it("should retrieve a configuration when no file exists", async () => {
     expect(service.retrieve).toBeDefined();
-    expect(await fileExists(service.getConfigurationFile())).toBe(false);
+    expect(await fileExists(configurationFile)).toBe(false);
     expect(await service.retrieve()).toMatchObject({
       schedule: [],
     });
-    expect(await fileExists(service.getConfigurationFile())).toBe(false);
+    expect(await fileExists(configurationFile)).toBe(false);
   });
 
   it("should retrieve a configuration from a file", async () => {
     let mockConfiguration = { "is a test": true };
     const files = {};
-    files[service.getConfigurationFolder()] = {
+    files[configurationStore.getConfigurationFolder()] = {
       "configuration.json": JSON.stringify(mockConfiguration),
     };
     mockFs(files);
@@ -55,11 +60,12 @@ describe("configuration-service", () => {
     expect(service.update).toBeDefined();
     var configuration = await service.retrieve();
     configuration["is a test"] = true;
-    expect(await fileExists(service.getConfigurationFile())).toBe(false);
+
+    expect(await fileExists(configurationFile)).toBe(false);
     await service.update(configuration);
-    expect(await fileExists(service.getConfigurationFile())).toBe(true);
-    expect(
-      JSON.parse(await fs.readFile(service.getConfigurationFile()))
-    ).toEqual(configuration);
+    expect(await fileExists(configurationFile)).toBe(true);
+    expect(JSON.parse(await fs.readFile(configurationFile))).toEqual(
+      configuration
+    );
   });
 });
