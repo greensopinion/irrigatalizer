@@ -24,7 +24,7 @@ mixin chart(hours,lineHeight)
   svg(viewBox=viewBox)
     - var translate = `translate(${padding},${padding})`
     g(transform=translate)
-      each historyItem in history
+      each historyItem in history.filter(i => i.end >= startTime)
         - var elapsed = (historyItem.end-historyItem.start)/millisPerHour
         - var width = Math.min(2,elapsed*pxPerHour)
         - var offset = ((historyItem.start - startTime)/millisPerHour)*pxPerHour
