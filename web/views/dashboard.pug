@@ -65,3 +65,57 @@ block content
               setupCountDown("nextTime","#{status.next.start}")
           span
             | , circuit #{status.next.circuit}
+    .chart-container
+      - var padding = 20
+      - var width = 800
+      - var chartWidth = (width-(padding*2))
+      - var pxPerHour = 10
+      - var hours = chartWidth / pxPerHour
+      - var millisPerMinute = 60*1000
+      - var millisPerHour = 60*millisPerMinute
+      - var now = Date.now()
+      - var startTime = now - (hours*millisPerHour)
+      - var viewBox = `0 0 ${width} 140`
+      - var lineHeight = 100
+      -
+        var ticks = []
+        let tickDate = new Date(startTime);
+        tickDate.setHours(0, 0, 0, 0);
+        do {
+          if (tickDate.getTime() > startTime) {
+            ticks.push(tickDate.getTime())
+          }
+          tickDate.setHours(tickDate.getHours()+1)
+        } while (tickDate.getTime() < now)
+
+      svg(viewBox=viewBox)
+        - var translate = `translate(${padding},${padding})`
+        g(transform=translate)
+          each historyItem in history
+            - var elapsed = (historyItem.end-historyItem.start)/millisPerHour
+            - var width = Math.min(2,elapsed*pxPerHour)
+            - var offset = ((historyItem.start - startTime)/millisPerHour)*pxPerHour
+            rect.bar(width=width, height=lineHeight, x=offset)
+              | #{JSON.stringify(historyItem)}
+          - var line = `M 0 ${lineHeight} L ${chartWidth} ${lineHeight}`
+          path.chart-axis(d=line)
+          each tick in ticks
+            - var xOffset = ((tick - startTime)/millisPerHour)*pxPerHour
+            - var tickDate = new Date(tick)
+            - var hours = tickDate.getHours()
+            - var isMidnight = hours===0;
+            - var is6Hour = hours%6 === 0
+            - var tickHeight = (isMidnight)?10:3
+            - var tickLine = `M ${xOffset} ${lineHeight} L ${xOffset} ${lineHeight+tickHeight}`
+            path.chart-axis.tick(d=tickLine)
+            if isMidnight
+              - var tickLabel = tickDate.toLocaleDateString("default", { weekday: 'short', month: 'numeric', day: 'numeric' })
+              - var tickLabelY = lineHeight+tickHeight+tickHeight
+              - var tickLabelX = xOffset
+              text.axis-label(x=xOffset,y=tickLabelY,style="text-anchor: middle;") #{tickLabel}
+            else if is6Hour
+              - var tickLabel = (hours > 12)?(hours-12):hours
+              - var tickLabelY = lineHeight+tickHeight+(tickHeight*3)
+              - var tickLabelX = xOffset
+              text.axis-label(x=xOffset,y=tickLabelY,style="text-anchor: middle;") #{tickLabel}
+
