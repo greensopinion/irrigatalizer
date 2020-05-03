@@ -32,7 +32,7 @@
     display: inline-block;
     position: relative;
     width: 100%;
-    padding-bottom: 170px;
+    padding-bottom: 12%;
     vertical-align: middle;
     overflow: hidden;
 
@@ -48,6 +48,12 @@
 
       .axis-label {
         font-size: $base-font-size * 0.625;
+      }
+
+      @include media-query($on-palm) {
+        .axis-label {
+          font-size: $base-font-size * 0.8;
+        }
       }
     }
 
