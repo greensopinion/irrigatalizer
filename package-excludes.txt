@@ -9,3 +9,4 @@
 - *.sh
 - __mocks__/
 - dev-site/
+- *.md
