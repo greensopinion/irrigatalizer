@@ -95,9 +95,9 @@ block content
       .control 
         span.label status: 
         if status.running === true
-          i.material-icons toggle_on
+          img.icon.va(src="/images/sprinkler-variant.svg")
         else
-          i.material-icons-outlined toggle_off
+          img.icon.va2(src="/images/water-off.svg")
       .control
         if status.running
           span.label current: 

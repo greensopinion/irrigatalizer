@@ -2,3 +2,18 @@
 .material-icons-outlined {
   vertical-align: bottom;
 }
+
+img.icon {
+  width: 1.5rem;
+  height: 1.5rem;
+
+  &.va {
+    position: relative;
+    bottom: 0.3rem;
+  }
+
+  &.va2 {
+    position: relative;
+    bottom: 0.2rem;
+  }
+}
