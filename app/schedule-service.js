@@ -104,11 +104,17 @@ const retrieve = async () => {
   const nextEntries = perCircuitSchedule.filter(
     (e) => e.effectiveEndTime > nowTime
   );
-  const current = nextEntries.find(
+  let current = nextEntries.find(
     (e) => e.effectiveStartTime <= nowTime && e.effectiveEndTime > nowTime
   );
-  const next = nextEntries.find((e) => e.effectiveStartTime > nowTime);
+  let next = nextEntries.find((e) => e.effectiveStartTime > nowTime);
+  let enabled = configuration.enabled !== false;
+  if (!enabled) {
+    current = null;
+    next = null;
+  }
   const response = {
+    enabled,
     current,
     next,
     schedule: nextEntries,

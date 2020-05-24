@@ -132,4 +132,17 @@ describe("scheduler", () => {
       }),
     ]);
   });
+
+  it("should start with a disabled schedule", async () => {
+    scheduleModel.enabled = false;
+    mockDateNow(1587913200003);
+    await scheduler.start();
+    expect(logEntries).toEqual([
+      "starting scheduler",
+      "schedule is disabled",
+      "scheduler has nothing to do, stopping",
+    ]);
+    expect(circuitService.circuit(2).isOn).toBe(false);
+    expect(circuitService.circuit(3).isOn).toBe(false);
+  });
 });

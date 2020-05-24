@@ -60,14 +60,18 @@ block content
     }
 
     function showError(message) {
+      const mainErrorElement = document.getElementById("mainError");
       const errorElement = document.getElementById("dialogError");
       errorElement.innerHTML = "";
+      mainErrorElement.innerHTML = "";
       if (message) {
-        const textNode = document.createTextNode(message);
-        errorElement.appendChild(textNode);
+        errorElement.appendChild(document.createTextNode(message));
         errorElement.style.display = "block";
+        mainErrorElement.appendChild(document.createTextNode(message));
+        mainErrorElement.style.display = "block";
       } else {
         errorElement.style.display = "none";
+        mainErrorElement.style.display = "none";
       }
     }
 
@@ -76,16 +80,28 @@ block content
         showError(null);
     }
 
-    function saveSchedule() {
+    function saveSchedule(errorHandler) {
       axios.put('/api/schedule',model).then((response)=> {
         originalEntry = null;
         showError("");
         hideDialog();
         updateScheduleDisplay();
+        updateControlsDisplay();
       }, (error) => {
         var message = (error.response && error.response.data && error.response.data.error)?error.response.data.error:error;
         showError(message);
         console.log(error);
+        if (errorHandler) {
+          errorHandler();
+        }
+      });
+    }
+
+    function toggleSchedule() {
+      model.enabled = !isScheduleEnabled();
+      saveSchedule(() => {
+        model.enabled = !isScheduleEnabled();
+        updateControlsDisplay();
       });
     }
 
@@ -170,6 +186,26 @@ block content
       }
     }
 
+    function isScheduleEnabled() {
+      return model.enabled !== false
+    }
+
+    function updateControlsDisplay() {
+      const toggle = document.getElementById("toggleSchedule");
+      const scheduleStatus = document.getElementById("scheduleStatus");
+      if (isScheduleEnabled()) {
+        toggle.classList.remove("material-icons-outlined")
+        toggle.classList.add("material-icons")
+        toggle.innerHTML = "toggle_on"
+        scheduleStatus.innerHTML = ""
+      } else {
+        toggle.classList.remove("material-icons")
+        toggle.classList.add("material-icons-outlined")
+        toggle.innerHTML = "toggle_off"
+        scheduleStatus.innerHTML = "schedule disabled"
+      }
+    }
+  div.alert.alert-danger#mainError(role="alert", style="display: none;")
   div#scheduleEntryDialog
     div.dialogContent.shadow-lg.bg-white.rounded
       div.header#editEntryTitle
@@ -189,6 +225,11 @@ block content
         button.btn.btn-outline-secondary(type="button",onclick="cancelEditEntry()") Cancel
         button.btn.btn-outline-danger#deleteEntryButton(type="button",onclick="deleteEntry()") Delete
         button.btn.btn-outline-primary(type="button",onclick="saveEntry()") Save
+  .contols
+    .control
+      span.label.mr-2 status:
+      button.btn.btn-light.material-icons#toggleSchedule(onclick='toggleSchedule()') toggle_on
+      span.ml-2#scheduleStatus
   div.schedule
     each day in days
         div.day
@@ -199,3 +240,4 @@ block content
                   | #{time.name}
   script.
     updateScheduleDisplay();
+    updateControlsDisplay();

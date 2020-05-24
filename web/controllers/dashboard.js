@@ -22,6 +22,7 @@ exports.handler = async (req, res) => {
     let model = {
       title: "dashboard",
       status: {
+        enabled: schedule.enabled,
         running: !!current,
         current,
         next,

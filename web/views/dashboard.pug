@@ -98,6 +98,8 @@ block content
           img.icon.va(src="/images/sprinkler-variant.svg")
         else
           img.icon.va2(src="/images/water-off.svg")
+        if status.enabled === false
+          span.ml-1 schedule disabled
       .control
         if status.running
           span.label current: 

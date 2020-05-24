@@ -98,6 +98,9 @@ const applySchedule = async () => {
   } else if (schedule.next) {
     scheduleApply(schedule.next.effectiveStartTime - now);
   } else {
+    if (schedule.enabled === false) {
+      logger.log("schedule is disabled");
+    }
     logger.log("scheduler has nothing to do, stopping");
   }
 };

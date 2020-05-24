@@ -62,6 +62,7 @@ describe("schedule-service", () => {
   it("should retrieve an empty schedule", async () => {
     expect(service.retrieve).toBeDefined();
     expect(await service.retrieve()).toEqual({
+      enabled: true,
       current: undefined,
       next: undefined,
       schedule: [],
@@ -80,6 +81,29 @@ describe("schedule-service", () => {
     expect(await service.retrieve()).toMatchObject({
       current: undefined,
       next: { circuit: 1, duration: 900000 },
+      schedule: [
+        { circuit: 1, duration: 900000 },
+        { circuit: 2, duration: 900000 },
+        { circuit: 1, duration: 900000 },
+        { circuit: 2, duration: 900000 },
+      ],
+    });
+  });
+
+  it("should retrieve a disabled schedule", async () => {
+    expect(service.retrieve).toBeDefined();
+    const dayOfWeek = new Date().getDay();
+    configuration = {
+      enabled: false,
+      schedule: [create6amEntry(dayOfWeek + 1), create6amEntry(dayOfWeek + 2)],
+    };
+    configurationService.retrieve = jest.fn(async () => {
+      return configuration;
+    });
+    expect(await service.retrieve()).toMatchObject({
+      enabled: false,
+      current: null,
+      next: null,
       schedule: [
         { circuit: 1, duration: 900000 },
         { circuit: 2, duration: 900000 },
@@ -162,6 +186,7 @@ describe("schedule-service", () => {
     );
 
     expect(await service.retrieve()).toEqual({
+      enabled: true,
       current: undefined,
       next: {
         circuit: 3,
