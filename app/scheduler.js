@@ -54,7 +54,15 @@ const circuitAboutToChange = (circuitToStart) => {
 const scheduleApply = async (wakeupDuration) => {
   const effectiveDuration = Math.max(wakeupDuration, 3000);
   logWakeUp(effectiveDuration);
-  timer = setTimeout(applySchedule, effectiveDuration);
+  timer = setTimeout(applyScheduleSafely, effectiveDuration);
+};
+
+const applyScheduleSafely = async () => {
+  try {
+    await applySchedule();
+  } catch (e) {
+    logger.log(`failed to apply schedule: ${e.message || e}\n${e.stack}`);
+  }
 };
 
 var currentCircuitHistory = null;
