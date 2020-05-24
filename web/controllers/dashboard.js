@@ -1,5 +1,6 @@
 const scheduleService = require("../../app/schedule-service");
 const historyService = require("../../app/domain/history-service");
+const logger = require("../../app/logger");
 
 const entryToViewModel = (item) => {
   return {
@@ -32,6 +33,7 @@ exports.handler = async (req, res) => {
         e.end = Date.parse(e.endTime);
         return e;
       }),
+      log: logger.messages(),
     };
     res.render("dashboard", model);
   } catch (e) {

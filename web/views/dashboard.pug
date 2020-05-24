@@ -121,4 +121,7 @@ block content
       +chart(36,50)
     .chart-container
       +chart(72,25)
+    .log
+      each logEntry in log
+        span.line [#{new Date(logEntry.time).toLocaleDateString("default", {  year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'})}] #{logEntry.message}
 
