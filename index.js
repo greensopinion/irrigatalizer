@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const bodyParser = require("body-parser");
 const appRoutes = require("./app/router/routes");
 const webRoutes = require("./web/router/web-routes");
+const logger = require("./app/logger");
 
 app.use(helmet());
 app.use(compression());
@@ -31,4 +32,8 @@ app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}...`);
 });
 
-scheduler.start();
+scheduler.start().catch((error) => {
+  logger.log(
+    `failed to start scheduler: ${error.message || error}\n${error.stack}`
+  );
+});
