@@ -44,7 +44,7 @@
     "bootstrap": "^4.4.1",
     "jest": "^25.3.0",
     "mock-fs": "^4.11.0",
-    "node-sass": "^4.13.1",
+    "node-sass": "^7.0.0",
     "nodemon": "^2.0.3",
     "supertest": "^4.0.2"
   }
