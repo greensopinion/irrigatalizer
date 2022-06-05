@@ -4,7 +4,7 @@ const logger = require("../logger");
 const configurationService = require("../domain/configuration-service");
 const scheduler = require("../scheduler");
 
-const statusHandler = async (request, response) => {
+const retrieveHandler = async (request, response) => {
   const configuration = await configurationService.retrieve();
   response.status(200).json(configuration);
 };
@@ -35,10 +35,9 @@ const updateHandler = async (request, response) => {
   }
 };
 
-router.get("/", statusHandler);
+router.get("/", retrieveHandler);
 router.put("/", updateHandler);
 
 module.exports = {
-  router,
-  statusHandler,
+  router
 };

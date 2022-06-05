@@ -1,4 +1,4 @@
-const { router } = require("./schedule");
+const { router } = require("./configuration");
 const request = require("supertest");
 var bodyParser = require("body-parser");
 const express = require("express");

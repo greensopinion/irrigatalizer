@@ -81,7 +81,7 @@ block content
     }
 
     function saveSchedule(errorHandler) {
-      axios.put('/api/schedule',model).then((response)=> {
+      axios.put('/api/configuration',model).then((response)=> {
         originalEntry = null;
         showError("");
         hideDialog();
