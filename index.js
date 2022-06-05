@@ -9,7 +9,9 @@ const appRoutes = require("./app/router/routes");
 const webRoutes = require("./web/router/web-routes");
 const logger = require("./app/logger");
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 app.use(compression());
 app.use(bodyParser.json());
 
@@ -26,7 +28,6 @@ closeables.push({
   close: scheduler.shutdown,
 });
 
-// Listen to the env-specified port, or 80 otherwise
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}...`);
