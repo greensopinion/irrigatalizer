@@ -2,7 +2,7 @@
 
 set -e
 
-export TARGET_HOST=pi2
+export TARGET_HOST=pi
 export TARGET_HOST_USER=dgreen
 
 scp build/irrigatalizer.tgz "$TARGET_HOST_USER@$TARGET_HOST:/home/$TARGET_HOST_USER"
