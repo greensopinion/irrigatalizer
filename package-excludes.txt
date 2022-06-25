@@ -10,3 +10,4 @@
 - __mocks__/
 - dev-site/
 - *.md
+- irrigatalizer_ui/
