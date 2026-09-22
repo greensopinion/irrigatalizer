@@ -1,0 +1,44 @@
+{
+  "name": "Secure Node.js Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+
+  // Container-side extensions only — minimal set
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "orta.vscode-jest",
+        "redhat.vscode-yaml",
+        "anthropic.claude-code",
+        "hashicorp.terraform"
+      ],
+      "settings": {
+        // Disable VS Code Git credential helpers inside container
+        "git.terminalGitEditor": true,
+        "git.useIntegratedAskPass": false,
+        // Disable auto port forwarding (reduces attack surface)
+        "remote.autoForwardPorts": false
+      }
+    }
+  },
+
+  // Set git identity for display in read-only git commands (log, blame)
+  // The container cannot commit (.git is read-only), but tools may read this config
+  "postCreateCommand": "git config --global user.name \"${GIT_USER_NAME:-Developer}\" && git config --global user.email \"${GIT_USER_EMAIL:-dev@example.com}\"",
+
+  // Only pass through non-credential environment variables
+  "remoteEnv": {
+    "GIT_USER_NAME": "${localEnv:GIT_USER_NAME}",
+    "GIT_USER_EMAIL": "${localEnv:GIT_USER_EMAIL}",
+    // SECURITY: Explicitly kill SSH agent forwarding
+    // VS Code forwards it by default — override to empty
+    "SSH_AUTH_SOCK": ""
+  },
+
+  // SECURITY: Explicitly disable SSH agent forwarding
+  // Do NOT add "agent forwarding" or mount SSH_AUTH_SOCK
+  // Do NOT add any of: GOOGLE_APPLICATION_CREDENTIALS, AWS_*, TF_TOKEN_*, SSH_AUTH_SOCK
+
+  "remoteUser": "node"
+}

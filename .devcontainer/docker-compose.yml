@@ -1,0 +1,43 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Bind mount: project source from Mac (writable — needed for development)
+      - ..:/workspace:cached
+      # SECURITY: Mount .git read-only to prevent container code from modifying
+      # Git hooks, config, or other metadata that the host later trusts.
+      - ../.git:/workspace/.git:ro
+      # SECURITY: Mount .devcontainer read-only to prevent container code from
+      # altering its own future security configuration.
+      - ../.devcontainer:/workspace/.devcontainer:ro
+      # Named volume: node_modules stays off Mac filesystem
+      - node_modules:/workspace/node_modules
+    # SECURITY: Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # Minimal capabilities needed for Node.js development
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    # SECURITY: Block access to host.docker.internal (Mac SSH and other services)
+    extra_hosts:
+      - "host.docker.internal:127.0.0.1"
+    # SECURITY: npm config enforcement via environment variables.
+    # These have higher precedence than any .npmrc file (project or user),
+    # so a hostile repository cannot weaken them.
+    environment:
+      - npm_config_min_release_age=21
+      - npm_config_strict_allow_scripts=true
+      - npm_config_dangerously_allow_all_scripts=false
+    # SECURITY: No additional mounts, no Docker socket, no SSH agent
+    # The container cannot access the host filesystem beyond /workspace
+    command: sleep infinity
+
+volumes:
+  node_modules:
