@@ -87,7 +87,7 @@ alongside `requirements.md`. Check tasks off as they complete.
     tests via an injected process runner; not yet validated on hardware. See
     `docs/gpio-driver.md` (includes the libgpiod v2 CLI-migration note).
 
-- [ ] **Task 5 — Boot/exit/crash safe-state + watchdog max-runtime cap**
+- [x] **Task 5 — Boot/exit/crash safe-state + watchdog max-runtime cap**
   - Objective: All relays off at startup before anything else; exit +
     uncaught-exception handlers safe-off; independent watchdog forces safe-off if a
     circuit exceeds its hard max on-time or the scheduler stops heart-beating.
@@ -96,6 +96,20 @@ alongside `requirements.md`. Check tasks off as they complete.
   - Test: boot safe-off ordering, watchdog trip on exceeded max-runtime, safe-off on
     simulated crash.
   - Demo: A stuck-on circuit is forced off by the watchdog after its cap.
+  - Result: `Watchdog` (`server/src/safety/watchdog.ts`) runs on its own injected
+    clock + interval timer, independent of the scheduler; it trips a safe-off when
+    the active circuit exceeds its hard max on-time or the scheduler heartbeat goes
+    stale (either condition, including a stale heartbeat mid-run), and latches so it
+    trips once. `safe-state.ts` provides `safeStateOnBoot` (drives all off as the
+    first action) and `registerSafeStateHandlers` (SIGINT/SIGTERM/uncaughtException/
+    unhandledRejection/beforeExit → safe-off then release GPIO, run at most once,
+    releasing even if safe-off throws). Both depend on narrow interfaces and are
+    covered by 15 tests with a manual clock/timer and a fake process/target.
+  - Deferred: binding these into the live server (`index.ts` wiring with a real
+    monotonic clock, `setInterval` timer, and `process` handlers around a concrete
+    `CircuitController`) lands with the scheduler (Task 7) and API (Task 9), when a
+    controller instance exists to wire. The safety machinery is complete and tested
+    in isolation.
 
 - [ ] **Task 6 — JSON persistence for config + history (fresh start, no migration)**
   - Objective: Typed config + history stores in `~/.irrigatalizer` (config: circuits
