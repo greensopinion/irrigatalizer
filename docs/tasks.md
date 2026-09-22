@@ -21,7 +21,7 @@ alongside `requirements.md`. Check tasks off as they complete.
   - Objective: Categorized requirements under `docs/`, tagged preserve/change/new.
   - Result: `docs/requirements.md` authored and reviewed.
 
-- [~] **Task 2 — Preserve old code on local `legacy` branch, delete old codebase**
+- [x] **Task 2 — Preserve old code on local `legacy` branch, delete old codebase**
   - Objective: Create local `legacy` branch capturing pre-rewrite state, then delete
     the old codebase on `main`: `app/`, `web/`, `irrigatalizer_ui/`, `index.js`,
     `process-cleanup.*`, old build/deploy scripts, `dev-site/`, old test/dev config,
@@ -32,14 +32,36 @@ alongside `requirements.md`. Check tasks off as they complete.
     at the pre-deletion commit.
   - Test: `legacy` holds old tree; `main` working tree free of old code.
   - Demo: Clean working tree ready for the new scaffold.
+  - Result: `legacy` branch verified to hold the old tree; old codebase confirmed
+    absent from `main` (working tree contains only the new scaffold). Note: no
+    `.github/` directory is currently present on `main` — CI workflow creation is
+    deferred to Task 11.
 
-- [ ] **Task 3 — Scaffold TS Express backend + Vite React SPA**
+- [x] **Task 3 — Scaffold TS Express backend + Vite React SPA**
   - Objective: Establish `server/` (Express + TS) and `web-ui/` (Vite + React + TS)
     workspaces, Vitest, lint/format, and a `verify` script (typecheck + test + build)
     with one trivial passing test.
   - Guidance: Pin dependency versions.
   - Test: `verify` runs typecheck + a sample unit test green.
   - Demo: Verification script builds and tests the empty scaffold.
+  - Sub-task — Correct dependency pins for the secure devcontainer (done):
+    - The initial scaffold pinned several versions that had been published within
+      the last 21 days, which the devcontainer's `min-release-age=21` rejected, so
+      `npm install` failed. (The majors themselves are valid — the pins were just
+      too new, not nonexistent.) Corrected each to the newest release older than 21
+      days, keeping the ESLint 10.x and Vite 8 / Vitest 4 peer sets coherent and
+      pinning `@types/node` to the 24.x line matching the Node 24 image:
+      - root: `eslint` 10.9.1, `@types/node` 24.13.3, `eslint-plugin-react-refresh`
+        0.5.5, `typescript-eslint` 8.69.0, `prettier` 3.9.6.
+      - `server/`: `vitest` 4.1.11, `supertest` 7.2.2, `tsx` 4.23.13.
+      - `web-ui/`: `vite` 8.2.2, `vitest` 4.1.11, `react`/`react-dom` 19.2.8,
+        `@types/react` 19.2.18, `@types/react-dom` 19.2.5, `jsdom` 30.0.1.
+    - `strict-allow-scripts=true` blocked esbuild's `postinstall`. Approved it via
+      an `allowScripts` allowlist in the root `package.json` (`esbuild@0.27.7` from
+      tsup, `esbuild@0.28.2` from vite) — the minimal carve-out; the strict default
+      still blocks everything else.
+  - Result: `npm install` completes clean and `npm run verify` (typecheck + lint +
+    test + build) passes across both workspaces.
 
 - [ ] **Task 4 — Fail-safe CircuitController with single-active invariant**
   - Objective: `CircuitController` over a `GpioDriver` interface guaranteeing at most
