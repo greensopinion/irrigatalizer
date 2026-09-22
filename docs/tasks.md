@@ -63,7 +63,7 @@ alongside `requirements.md`. Check tasks off as they complete.
   - Result: `npm install` completes clean and `npm run verify` (typecheck + lint +
     test + build) passes across both workspaces.
 
-- [ ] **Task 4 — Fail-safe CircuitController with single-active invariant**
+- [x] **Task 4 — Fail-safe CircuitController with single-active invariant**
   - Objective: `CircuitController` over a `GpioDriver` interface guaranteeing at most
     one active circuit (turn all others off and verify before energizing) plus a
     safe-off-all operation. In-memory fake driver for tests. Resolve the real GPIO
@@ -72,6 +72,20 @@ alongside `requirements.md`. Check tasks off as they complete.
     library choice isolated behind `GpioDriver`.
   - Test: single-active enforcement, safe-off, idempotent on/off, driver-failure.
   - Demo: Requesting B while A is on yields only B active; safe-off leaves none on.
+  - Result: `GpioDriver` interface (`setup`/`write`/`read`/`release`) isolates the
+    hardware; `CircuitController` energizes only after driving every other circuit
+    low and verifying the off-state by read-back, and drives everything safe-off if
+    verification or any write fails. A `FakeGpioDriver` (with fault injection) backs
+    20 passing tests covering single-active enforcement, safe-off, idempotent
+    on/off, and the read/write/verification failure paths.
+  - GPIO driver decision (resolves the spike): rather than a native addon, the
+    production `GpiodCliDriver` shells out to the libgpiod v1.x CLI (`gpioset`
+    holds a line high until killed; `gpioget` reads back), avoiding node-gyp, a
+    compiler, and Node-ABI coupling. Killing the holder de-energizes the line, so
+    process death fails safe. Validated target: Pi 4, 64-bit bullseye, kernel 5.15,
+    `/dev/gpiochip0` present; Pi-side dependency is `apt install gpiod`. Covered by
+    tests via an injected process runner; not yet validated on hardware. See
+    `docs/gpio-driver.md` (includes the libgpiod v2 CLI-migration note).
 
 - [ ] **Task 5 — Boot/exit/crash safe-state + watchdog max-runtime cap**
   - Objective: All relays off at startup before anything else; exit +
