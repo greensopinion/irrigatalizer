@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Load steering at session start",
+      "trigger": "SessionStart",
+      "description": "At session start, surfaces the repo's .kiro/steering files so their conventions are loaded before doing work.",
+      "action": {
+        "type": "command",
+        "command": "if [ -d .kiro/steering ] && [ -n \"$(ls -A .kiro/steering 2>/dev/null)\" ]; then echo \"This repo has steering files in .kiro/steering. Read all of them before writing code, editing repo files, or drafting commit messages, and follow their conventions:\"; for f in .kiro/steering/*.md; do echo \"  - $f\"; done; fi"
+      }
+    }
+  ]
+}
