@@ -51,16 +51,27 @@ export const ProgramSchema = z.object({
 });
 
 /**
- * Override state that suppresses scheduled runs and auto-resumes. Fleshed out in
- * Task 8; modeled here as an optional, time-bounded value so it persists now.
+ * Override state that suppresses scheduled runs and auto-resumes.
+ *
+ * - `skip-24h` and `rain-delay` are time windows: every run starting before
+ *   `expiresAt` is suppressed, and scheduling resumes automatically afterwards.
+ * - `skip-next` suppresses only the next scheduled session that begins at or after
+ *   `createdAt`; it has no fixed expiry (`expiresAt` is null) because its boundary
+ *   depends on the timeline, so later sessions still run.
  */
 export const OverrideSchema = z.object({
   kind: z.enum(["skip-next", "skip-24h", "rain-delay"]),
   /**
-   * Epoch milliseconds at which the override expires and normal scheduling
-   * resumes. `skip-next` uses this as the boundary of the next run it suppresses.
+   * Epoch milliseconds when the override was created. Marks the point from which
+   * suppression applies.
    */
-  expiresAt: z.number().int().nonnegative(),
+  createdAt: z.number().int().nonnegative(),
+  /**
+   * Epoch milliseconds at which a time-window override expires and normal
+   * scheduling resumes. Null for `skip-next`, which is bounded by the next session
+   * rather than a fixed time.
+   */
+  expiresAt: z.number().int().nonnegative().nullable(),
 });
 
 export const ConfigurationSchema = z.object({

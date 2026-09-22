@@ -1,5 +1,6 @@
 import type { Configuration } from "../persistence/schema";
-import { buildTimeline, currentAndNext, type ScheduledRun } from "./timeline";
+import { currentAndNext, type ScheduledRun } from "./timeline";
+import { effectiveTimeline } from "./overrides";
 
 /**
  * The relay-control operations the scheduler needs. Depending on this narrow
@@ -106,7 +107,7 @@ export class Scheduler {
     this.options.heartbeat?.();
 
     const now = this.options.clock();
-    const timeline = buildTimeline(this.configuration, now);
+    const timeline = effectiveTimeline(this.configuration, now);
     const { current, next } = currentAndNext(timeline, now);
 
     try {

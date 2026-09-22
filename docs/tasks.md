@@ -157,13 +157,26 @@ alongside `requirements.md`. Check tasks off as they complete.
     full duration. This guarantees the never-simultaneous invariant deterministically
     rather than dropping or truncating runs.
 
-- [ ] **Task 8 — Overrides: skip next, skip 24h, rain-delay N days (auto-resume)**
+- [x] **Task 8 — Overrides: skip next, skip 24h, rain-delay N days (auto-resume)**
   - Objective: Time-bounded override state that suppresses scheduled runs and
     auto-resumes, integrated into current/next computation and persisted.
   - Guidance: Scheduler consults overrides when deciding what to run next;
     interoperates with disabled state.
   - Test: each override type, auto-resume at expiry, interaction with disabled state.
   - Demo: "Skip 24h" reports no runs until the window passes, then resumes.
+  - Result: `overrides.ts` adds builders (`createSkipNext`, `createSkip24h`,
+    `createRainDelay`) and a pure `applyOverride(timeline, override, now)` plus
+    `effectiveTimeline(config, now)`, which the scheduler now uses in place of the
+    raw timeline. `skip-24h` and `rain-delay` are time windows that drop every run
+    starting before `expiresAt` and suppress nothing once expired (auto-resume);
+    `skip-next` (no fixed expiry) drops the next whole session. The `Override`
+    schema gained `createdAt` and a nullable `expiresAt`, persisted with the
+    configuration. A disabled schedule yields nothing regardless of any override.
+    11 tests cover each type, auto-resume after expiry, and the disabled
+    interaction.
+  - skip-next semantics (decided): it suppresses the next session that has not yet
+    started (grouping back-to-back runs into sessions), skipping any session already
+    in progress rather than truncating a circuit that is already watering.
 
 - [ ] **Task 9 — Express REST API (no WebSockets)**
   - Objective: REST endpoints for config CRUD (circuits/programs), status
