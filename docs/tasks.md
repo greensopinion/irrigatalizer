@@ -111,13 +111,24 @@ alongside `requirements.md`. Check tasks off as they complete.
     controller instance exists to wire. The safety machinery is complete and tested
     in isolation.
 
-- [ ] **Task 6 — JSON persistence for config + history (fresh start, no migration)**
+- [x] **Task 6 — JSON persistence for config + history (fresh start, no migration)**
   - Objective: Typed config + history stores in `~/.irrigatalizer` (config: circuits
     with names + pins, programs, global enable, overrides; history: run records with
     retention cap). No migration of old files.
   - Guidance: Validate on read/write; default to empty config on first run.
   - Test: read/write round-trip, defaulting when files absent, history retention cap.
   - Demo: Config + history persist and reload across a restart.
+  - Result: `zod` schemas (`persistence/schema.ts`) define circuits (number/name/
+    pin), programs (days, single 30-minute start slot, ordered per-circuit steps),
+    master `enabled`, and a minimal `override` (expanded in Task 8), plus history
+    run records. A `JsonFileStore` validates on read and write, defaults to empty
+    state when a file is absent, rejects malformed/invalid files with a
+    `PersistenceValidationError`, and writes atomically (temp file + rename).
+    `ConfigStore` and `HistoryStore` live under `~/.irrigatalizer` (directory
+    injectable for tests); `HistoryStore` enforces a retention cap (default 200,
+    keeping the newest). No migration of old files. 10 tests cover round-trip,
+    default-on-absent, retention trimming, and validation rejection against a temp
+    directory. Dependency: `zod` pinned at `4.5.4` (aged, no install scripts).
 
 - [ ] **Task 7 — Redesigned scheduling engine (sequential, multi-program)**
   - Objective: Expand programs (day selection, single 30-minute-slot start time,
