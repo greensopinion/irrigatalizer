@@ -105,11 +105,10 @@ alongside `requirements.md`. Check tasks off as they complete.
     unhandledRejection/beforeExit → safe-off then release GPIO, run at most once,
     releasing even if safe-off throws). Both depend on narrow interfaces and are
     covered by 15 tests with a manual clock/timer and a fake process/target.
-  - Deferred: binding these into the live server (`index.ts` wiring with a real
-    monotonic clock, `setInterval` timer, and `process` handlers around a concrete
-    `CircuitController`) lands with the scheduler (Task 7) and API (Task 9), when a
-    controller instance exists to wire. The safety machinery is complete and tested
-    in isolation.
+  - Live wiring: now done in Task 9's `bootstrap()` (`index.ts`) — real monotonic
+    clock, `setInterval`/`setTimeout` timers, and `process` handlers around the
+    concrete `CircuitController`, with a `WatchedController` arming the max-runtime
+    cap. The safety machinery remains independently tested in isolation.
 
 - [x] **Task 6 — JSON persistence for config + history (fresh start, no migration)**
   - Objective: Typed config + history stores in `~/.irrigatalizer` (config: circuits
@@ -178,7 +177,7 @@ alongside `requirements.md`. Check tasks off as they complete.
     started (grouping back-to-back runs into sessions), skipping any session already
     in progress rather than truncating a circuit that is already watering.
 
-- [ ] **Task 9 — Express REST API (no WebSockets)**
+- [x] **Task 9 — Express REST API (no WebSockets)**
   - Objective: REST endpoints for config CRUD (circuits/programs), status
     (current/next, enabled, override) for polling, history, manual run/test
     start-stop, and overrides. Applying config safely restarts the scheduler.
@@ -188,6 +187,24 @@ alongside `requirements.md`. Check tasks off as they complete.
     apply config restarts scheduler).
   - Demo: Start a manual run via curl and poll `/api/status` for active circuit +
     remaining time.
+  - Result: `api/app.ts` exposes `GET/PUT /api/configuration` (PUT validates with
+    zod and calls `scheduler.apply` to restart), `GET /api/status` (now, enabled,
+    override, active manual run, current/next from `effectiveTimeline`), `GET
+/api/history`, `POST /api/manual-run` + `/api/manual-run/stop`, and `POST/DELETE
+/api/override`. Invalid input returns 400 `{ error }`. `ManualRunController`
+    runs a circuit for a fixed duration through the controller (invariant + watchdog
+    apply), suspending the scheduler for the duration and resuming after (timeout or
+    early stop). `createApp(deps)` takes injected dependencies; 10 supertest
+    integration tests run against a real controller + `FakeGpioDriver` + temp-dir
+    stores.
+  - Live wiring (resolves the Task 5 deferral): `bootstrap()` in `index.ts` composes
+    the `GpiodCliDriver`, `CircuitController`, stores, `Watchdog` (real monotonic
+    clock + `setInterval`), `Scheduler` and `ManualRunController` (real `setTimeout`
+    - `Date.now`), and a `WatchedController` decorator that arms the watchdog's
+      max-runtime cap on every energize without coupling the scheduler to the
+      watchdog. Boot drives safe-off first; SIGINT/SIGTERM/crash handlers safe-off and
+      release GPIO; the watchdog trip drives safe-off. Not yet started against real
+      hardware (needs the Pi + `gpiod`); all logic is covered by the fake driver.
 
 - [ ] **Task 10 — Phone-first React SPA served by the backend; live via polling**
   - Objective: Vite React app served as static files by the backend. Dashboard

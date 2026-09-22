@@ -100,6 +100,29 @@ export class Scheduler {
     await this.options.controller.safeOffAll();
   }
 
+  /**
+   * Pause automatic scheduling without driving circuits off, yielding hardware
+   * control to a manual run. Unlike `stop`, this does not safe-off: the manual run
+   * owns the relay while suspended.
+   */
+  async suspend(): Promise<void> {
+    this.running = false;
+    this.options.timer.cancel();
+    this.activeRun = undefined;
+  }
+
+  /**
+   * Resume automatic scheduling from the current configuration, re-evaluating
+   * immediately so the correct circuit for "now" is restored.
+   */
+  async resume(): Promise<void> {
+    if (!this.configuration) {
+      return;
+    }
+    this.running = true;
+    await this.evaluate();
+  }
+
   private async evaluate(): Promise<void> {
     if (!this.running || !this.configuration) {
       return;

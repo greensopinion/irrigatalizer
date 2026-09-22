@@ -38,7 +38,9 @@ export interface SafeStateOptions {
  * Drive all circuits off as the very first boot action, before any scheduling
  * begins. Returns once the hardware is confirmed safe.
  */
-export async function safeStateOnBoot(target: SafeStateTarget): Promise<void> {
+export async function safeStateOnBoot(
+  target: Pick<SafeStateTarget, "safeOffAll">,
+): Promise<void> {
   await target.safeOffAll();
 }
 
