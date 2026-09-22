@@ -130,7 +130,7 @@ alongside `requirements.md`. Check tasks off as they complete.
     default-on-absent, retention trimming, and validation rejection against a temp
     directory. Dependency: `zod` pinned at `4.5.4` (aged, no install scripts).
 
-- [ ] **Task 7 — Redesigned scheduling engine (sequential, multi-program)**
+- [x] **Task 7 — Redesigned scheduling engine (sequential, multi-program)**
   - Objective: Expand programs (day selection, single 30-minute-slot start time,
     ordered per-circuit durations) into a sequential timeline; compute current/next;
     drive the controller one circuit at a time (never simultaneous). Master
@@ -140,6 +140,22 @@ alongside `requirements.md`. Check tasks off as they complete.
   - Test: timeline expansion, current/next at boundary times, sequential ordering,
     disabled state; property test that no two circuits overlap.
   - Demo: A two-program config reports correct current/next and drives sequentially.
+  - Result: Split into a pure `timeline.ts` and an effectful `scheduler.ts`.
+    `buildTimeline` expands each program's steps back-to-back from its 30-minute
+    start slot across the current and next local day (matching days by weekday), and
+    `currentAndNext` resolves the running/upcoming run for any instant; a disabled
+    schedule yields an empty timeline. `Scheduler` is timer-driven (injected clock +
+    one-shot timer): it wakes at each transition, drives at most one circuit through
+    the controller, records a history run on each transition, heartbeats so the
+    watchdog knows it is alive, caps idle sleep so heartbeats stay regular, and
+    safely restarts on `apply(config)`. 18 tests cover expansion, boundary
+    current/next, sequential switching one-at-a-time, disabled state, safe-off when
+    idle, and a 200-iteration property test asserting no two runs overlap.
+  - Overlap policy (decided): when multiple programs' runs would collide, candidate
+    runs are sorted by intended start and any run that would begin before the prior
+    one ends is pushed to start exactly when the prior ends, preserving each run's
+    full duration. This guarantees the never-simultaneous invariant deterministically
+    rather than dropping or truncating runs.
 
 - [ ] **Task 8 — Overrides: skip next, skip 24h, rain-delay N days (auto-resume)**
   - Objective: Time-bounded override state that suppresses scheduled runs and
