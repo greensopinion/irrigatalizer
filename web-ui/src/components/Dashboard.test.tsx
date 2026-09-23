@@ -18,6 +18,7 @@ function baseStatus(overrides: Partial<Status> = {}): Status {
     manualRun: null,
     current: null,
     next: null,
+    driver: "gpiod",
     ...overrides,
   };
 }
@@ -119,6 +120,36 @@ describe("Dashboard", () => {
       />,
     );
     expect(screen.getByText(/schedule disabled/i)).toBeInTheDocument();
+  });
+
+  it("warns when running on the simulated GPIO driver", () => {
+    render(
+      <Dashboard
+        status={baseStatus({ driver: "fake" })}
+        history={emptyHistory}
+        circuits={circuits}
+        timezone="UTC"
+        clockOffset={0}
+        error={undefined}
+        loading={false}
+      />,
+    );
+    expect(screen.getByText(/simulated gpio driver/i)).toBeInTheDocument();
+  });
+
+  it("does not warn about the driver when running on real hardware", () => {
+    render(
+      <Dashboard
+        status={baseStatus({ driver: "gpiod" })}
+        history={emptyHistory}
+        circuits={circuits}
+        timezone="UTC"
+        clockOffset={0}
+        error={undefined}
+        loading={false}
+      />,
+    );
+    expect(screen.queryByText(/simulated gpio driver/i)).not.toBeInTheDocument();
   });
 
   it("describes an active skip-24h override with its resume time", () => {

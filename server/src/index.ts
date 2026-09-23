@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Express } from "express";
-import { createApp, type ApiDeps } from "./api/app";
+import { createApp, type ApiDeps, type DriverKind } from "./api/app";
 import { CircuitController } from "./gpio/circuit-controller";
 import { GpiodCliDriver } from "./gpio/gpiod-cli-driver";
 import { FakeGpioDriver } from "./gpio/fake-gpio-driver";
@@ -90,6 +90,7 @@ export async function bootstrap(options?: {
   driver?: GpioDriver;
 }): Promise<{ app: Express; shutdown: () => Promise<void> }> {
   const driver = options?.driver ?? resolveDriver();
+  const driverKind: DriverKind = driver instanceof FakeGpioDriver ? "fake" : "gpiod";
   const controller = new CircuitController(driver, DEFAULT_CIRCUIT_PINS);
   const configStore = new ConfigStore(options?.dataDir);
   const historyStore = new HistoryStore(options?.dataDir);
@@ -158,6 +159,7 @@ export async function bootstrap(options?: {
     stopManualRun: () => manualRun.stop(),
     activeManualRun: () => manualRun.activeRun(),
     clock: () => Date.now(),
+    driver: driverKind,
     staticDir: options?.staticDir ?? resolveStaticDir(),
   };
 
@@ -224,7 +226,11 @@ if (isMainModule) {
       });
     })
     .catch((error: unknown) => {
+      // Exit promptly rather than only setting exitCode: bootstrap may have left
+      // timers (watchdog interval, etc.) pending that keep the event loop alive,
+      // which would leave a failed boot lingering as a live-but-not-listening
+      // process instead of crashing visibly for the process manager to restart.
       console.error("failed to start:", error);
-      process.exitCode = 1;
+      process.exit(1);
     });
 }

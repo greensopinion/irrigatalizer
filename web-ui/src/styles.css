@@ -123,6 +123,11 @@ h2 {
   color: var(--warning);
 }
 
+.banner.simulated {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
 /* Running status */
 .running {
   display: flex;

@@ -139,6 +139,7 @@ describe("API", () => {
       stopManualRun: () => manualRun.stop(),
       activeManualRun: () => manualRun.activeRun(),
       clock: () => now,
+      driver: "fake",
     };
     app = createApp(deps);
   });
@@ -195,6 +196,7 @@ describe("API", () => {
     expect(response.body.enabled).toBe(true);
     expect(response.body).toHaveProperty("current");
     expect(response.body).toHaveProperty("next");
+    expect(response.body.driver).toBe("fake");
   });
 
   it("starts a manual run through the controller and reflects it in status", async () => {

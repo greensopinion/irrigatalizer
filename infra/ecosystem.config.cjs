@@ -49,6 +49,13 @@ const runtimeEnv = {
   HOME: deployEnv.DATA_HOME || appDir,
 };
 
+// Write logs to an explicit, service-user-owned directory (the data dir, which
+// persists across redeploys) rather than relying on pm2's default under $HOME/
+// .pm2 — that default was silently uncaptured/root-owned during bring-up, which
+// made a failed boot impossible to diagnose. deploy.sh ensures this dir exists
+// and is owned by the service user.
+const logDir = path.join(deployEnv.DATA_HOME || appDir, "logs");
+
 if (deployEnv.GPIO_DRIVER) {
   runtimeEnv.GPIO_DRIVER = deployEnv.GPIO_DRIVER;
 }
@@ -67,6 +74,13 @@ module.exports = {
       // Give the process room; a restart storm should back off, not hammer.
       restart_delay: 2000,
       kill_timeout: 8000,
+      // Explicit log files so stdout/stderr are always captured and readable by
+      // the service user. merge_logs keeps them simple in fork mode; timestamps
+      // make a crash loop legible.
+      out_file: path.join(logDir, "irrigatalizer-out.log"),
+      error_file: path.join(logDir, "irrigatalizer-error.log"),
+      merge_logs: true,
+      time: true,
       env: runtimeEnv,
     },
   ],

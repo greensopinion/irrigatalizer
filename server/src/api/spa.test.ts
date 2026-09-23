@@ -22,6 +22,7 @@ function staticOnlyDeps(staticDir: string): ApiDeps {
     stopManualRun: async () => {},
     activeManualRun: () => undefined,
     clock: () => 0,
+    driver: "fake",
     staticDir,
   };
 }

@@ -97,22 +97,61 @@ DATA_HOME=${DATA_DIR}
 ENV
 sudo chown "${SERVICE_USER}:${SERVICE_USER}" "${APP_DIR}/infra.env"
 
+echo "--> Ensuring log + pm2 directories are owned by ${SERVICE_USER}..."
+# The ecosystem config writes logs to ${DATA_DIR}/logs. Make sure it (and the
+# pm2 home) exist and are service-user-owned, so logs are actually captured and
+# never end up root-owned (which previously hid a failed boot).
+sudo mkdir -p "${DATA_DIR}/logs" "${DATA_DIR}/.pm2"
+sudo chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}/logs" "${DATA_DIR}/.pm2"
+
+# Run a command as the service user, from a directory the service user can
+# access (APP_DIR). pm2 spawns its daemon inheriting the current working
+# directory; launching from a dir the service user cannot enter (e.g. the login
+# user's 0700 home) makes Node's spawn fail with `spawn node EACCES`. Running
+# from APP_DIR avoids that.
+as_service() {
+  sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" sh -c "cd '${APP_DIR}' && $*"
+}
+
 echo "--> Installing runtime dependencies (npm install --omit=dev)..."
-sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" npm --prefix "${APP_DIR}" install --omit=dev --no-audit --no-fund
+as_service "npm install --omit=dev --no-audit --no-fund"
 
 echo "--> Starting/reloading the pm2 service as ${SERVICE_USER}..."
 # reload if already running (near-zero downtime), otherwise start fresh.
-if sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" pm2 describe irrigatalizer >/dev/null 2>&1; then
-  sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" pm2 reload "${APP_DIR}/ecosystem.config.cjs"
+if as_service "pm2 describe irrigatalizer" >/dev/null 2>&1; then
+  as_service "pm2 reload '${APP_DIR}/ecosystem.config.cjs'"
 else
-  sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" pm2 start "${APP_DIR}/ecosystem.config.cjs"
+  as_service "pm2 start '${APP_DIR}/ecosystem.config.cjs'"
 fi
 
 echo "--> Saving the pm2 process list so it resurrects on boot..."
-sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" pm2 save
+as_service "pm2 save"
+
+echo "--> Health check: waiting for the app to answer on port ${APP_PORT}..."
+# pm2 reporting "online" only means the process is alive, not that the HTTP
+# server bound the port (a failed boot can linger as live-but-not-listening).
+# Poll the status endpoint and fail the deploy loudly if it never responds, so a
+# broken deploy is obvious instead of silently leaving a dead service.
+healthy=0
+for attempt in $(seq 1 15); do
+  if curl -fsS -o /dev/null "http://localhost:${APP_PORT}/api/status"; then
+    healthy=1
+    echo "    OK: /api/status responded (attempt ${attempt})."
+    break
+  fi
+  sleep 1
+done
+
+if [ "${healthy}" != "1" ]; then
+  echo "    ERROR: app did not answer on port ${APP_PORT} after 15s." >&2
+  echo "    Recent logs:" >&2
+  as_service "pm2 logs irrigatalizer --lines 40 --nostream" >&2 || true
+  as_service "pm2 status irrigatalizer" >&2 || true
+  exit 1
+fi
 
 echo "--> Current status:"
-sudo -u "${SERVICE_USER}" env HOME="${DATA_DIR}" pm2 status irrigatalizer || true
+as_service "pm2 status irrigatalizer" || true
 cat "${APP_DIR}/RELEASE" 2>/dev/null || true
 echo "--> Deploy complete."
 REMOTE

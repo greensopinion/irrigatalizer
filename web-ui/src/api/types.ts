@@ -69,6 +69,9 @@ export interface ActiveManualRun {
   endsAt: number;
 }
 
+/** Which GPIO driver the backend is running. */
+export type DriverKind = "fake" | "gpiod";
+
 export interface Status {
   now: number;
   enabled: boolean;
@@ -76,6 +79,8 @@ export interface Status {
   manualRun: ActiveManualRun | null;
   current: ScheduledRun | null;
   next: ScheduledRun | null;
+  /** The GPIO driver in use; "fake" means no real relays are switched. */
+  driver: DriverKind;
 }
 
 /** Request body for POST /api/override. */

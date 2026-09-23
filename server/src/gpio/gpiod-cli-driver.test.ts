@@ -15,13 +15,17 @@ interface RunRecord {
 
 class FakeChild implements HeldProcess {
   killed = false;
+  /** When true (default), kill() synchronously emits exit, as a fast kill would. */
+  exitOnKill = true;
   private exitListeners: Array<(code: number | null) => void> = [];
   private errorListeners: Array<(error: Error) => void> = [];
 
   kill(): void {
     this.killed = true;
-    for (const listener of this.exitListeners) {
-      listener(null);
+    if (this.exitOnKill) {
+      for (const listener of this.exitListeners) {
+        listener(null);
+      }
     }
   }
 
@@ -88,6 +92,33 @@ describe("GpiodCliDriver", () => {
     await driver.write(17, "high");
     const { child } = runner.lastSpawn();
     await driver.write(17, "low");
+    expect(child.killed).toBe(true);
+  });
+
+  it("waits for the holder to exit before a low write resolves", async () => {
+    // A fake child that does NOT exit synchronously on kill(), so we can observe
+    // that write(low) stays pending until the process actually exits — the fix
+    // for the libgpiod v2 race where reading a just-released line reports busy.
+    const slowRunner = new FakeRunner();
+    const slowDriver = new GpiodCliDriver({
+      runner: slowRunner,
+      releaseTimeoutMs: 10_000,
+    });
+    await slowDriver.setup([17]);
+    await slowDriver.write(17, "high");
+    const { child } = slowRunner.lastSpawn();
+    child.exitOnKill = false;
+
+    let resolved = false;
+    const low = slowDriver.write(17, "low").then(() => {
+      resolved = true;
+    });
+    await Promise.resolve();
+    expect(resolved).toBe(false); // still waiting for the holder to die
+
+    child.emitExit(0); // holder finally exits
+    await low;
+    expect(resolved).toBe(true);
     expect(child.killed).toBe(true);
   });
 

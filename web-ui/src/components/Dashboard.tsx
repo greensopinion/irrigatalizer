@@ -51,13 +51,19 @@ export function Dashboard({
     );
   }
 
-  const { current, next, manualRun, enabled, override } = status;
+  const { current, next, manualRun, enabled, override, driver } = status;
 
   return (
     <div className="dashboard">
       {error ? (
         <p className="banner warning" role="status">
           Connection issue: {error}. Showing last known status.
+        </p>
+      ) : null}
+
+      {driver === "fake" ? (
+        <p className="banner simulated" role="status">
+          Simulated GPIO driver — no relays are being switched. For testing only.
         </p>
       ) : null}
 

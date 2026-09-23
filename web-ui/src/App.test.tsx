@@ -21,6 +21,7 @@ function status(): Status {
     manualRun: null,
     current: null,
     next: null,
+    driver: "gpiod",
   };
 }
 

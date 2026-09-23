@@ -331,6 +331,32 @@ alongside `requirements.md`. Check tasks off as they complete.
     v2 CLI (bookworm and later) — `gpioset -c <chip> <pin>=1` holding until the
     process is killed, and `gpioget --numeric -c <chip> <pin>` for read-back — and
     no longer supports the v1.x syntax. `docs/gpio-driver.md` updated accordingly.
+    Release race fixed: in v2 a held line is exclusively reserved, and killing the
+    holding `gpioset` is asynchronous, so a read-back immediately after releasing
+    would report the line busy. Driving a line low now awaits the holder's actual
+    exit (bounded by a `releaseTimeoutMs`, default 2s, so de-energizing cannot hang
+    on a wedged holder — a holder that outlives the timeout leaves the line high,
+    which the controller's verify-low correctly rejects). Confirmed against the Pi
+    that reading a released/never-held line returns cleanly; the manual `gpioget`
+    "busy" only occurs when reading a still-held line, which the controller never
+    does.
+  - Deploy hardening (done, after a bring-up on real hardware): three fixes from
+    diagnosing a stuck first deploy on Debian 13 trixie. (a) `deploy.sh` runs all
+    `pm2`/`npm` commands as the service user from `APP_DIR` via an `as_service`
+    helper — pm2 spawns its daemon inheriting the cwd, and launching from a dir the
+    service user cannot enter (the login user's `0700` home) failed with `spawn
+    node EACCES`. (b) pm2 log capture fixed: the ecosystem config writes explicit
+    `out_file`/`error_file` under `<DATA_DIR>/logs` (service-user-owned, created by
+    both provision and deploy) instead of the default `$HOME/.pm2` logs, which came
+    up empty/root-owned and hid the failure; `.pm2` and `logs` are now created and
+    owned by the service user up front. (c) `deploy.sh` polls
+    `http://localhost:$APP_PORT/api/status` after start and fails the deploy
+    (dumping recent logs) if the app never answers — pm2 "online" only means the
+    process is alive, not that it bound the port. Correspondingly, `bootstrap()`
+    failure in `index.ts` now `process.exit(1)`s instead of only setting
+    `exitCode`, so a failed boot dies visibly (leftover watchdog timers were
+    keeping a failed process alive-but-not-listening). App verified serving under
+    pm2 with the fake driver (`GPIO_DRIVER=fake`) on the Pi.
   - Remaining: rewrite `README.md` for the new architecture (the current file still
     documents the legacy Node 12 / `index.js` / old pm2 flow below the "Related"
     heading) and confirm the deploy end-to-end on a Pi with real hardware.

@@ -137,7 +137,10 @@ echo "    service picks it up when it starts at deploy time."
 echo "--> Creating directories..."
 sudo mkdir -p "${APP_DIR}"
 sudo chown -R "${SERVICE_USER}:${SERVICE_USER}" "${APP_DIR}"
-sudo mkdir -p "${DATA_DIR}/.irrigatalizer"
+# Data dir plus the persisted-state, pm2-home, and log subdirectories. Create
+# them up front and own them as the service user so pm2 never falls back to a
+# root-owned home and logs are captured from the first start.
+sudo mkdir -p "${DATA_DIR}/.irrigatalizer" "${DATA_DIR}/.pm2" "${DATA_DIR}/logs"
 sudo chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
 
 echo "--> Setting up port 80 -> ${APP_PORT} redirect..."

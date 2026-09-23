@@ -28,6 +28,16 @@ export interface HeldProcess {
   on(event: "exit", listener: (code: number | null) => void): void;
 }
 
+/**
+ * A held-high line: the `gpioset` process holding it, whether it has exited, and
+ * a resolver used to await that exit during release.
+ */
+interface HeldLine {
+  child: HeldProcess;
+  exited: boolean;
+  resolveExit?: () => void;
+}
+
 export interface GpiodCliOptions {
   /**
    * GPIO chip to address. The Raspberry Pi 4's 40-pin header is on gpiochip0.
@@ -37,9 +47,19 @@ export interface GpiodCliOptions {
    * Override the process runner. Defaults to Node's child_process.
    */
   runner?: ProcessRunner;
+  /**
+   * How long releasing a line waits for its `gpioset` holder to actually exit
+   * before giving up and returning anyway. Killing the holder is asynchronous:
+   * until it exits the kernel still considers the line requested, so a read-back
+   * immediately after would collide ("busy"). Waiting for the exit makes release
+   * deterministic. Bounded so a wedged holder cannot block de-energizing forever.
+   * Defaults to 2000ms.
+   */
+  releaseTimeoutMs?: number;
 }
 
 const DEFAULT_CHIP = "gpiochip0";
+const DEFAULT_RELEASE_TIMEOUT_MS = 2000;
 
 /**
  * Drives relays through the libgpiod v2 command-line tools instead of a native
@@ -61,12 +81,15 @@ const DEFAULT_CHIP = "gpiochip0";
 export class GpiodCliDriver implements GpioDriver {
   private readonly chip: string;
   private readonly runner: ProcessRunner;
+  private readonly releaseTimeoutMs: number;
   private readonly configuredPins = new Set<number>();
-  private readonly heldByPin = new Map<number, HeldProcess>();
+  private readonly heldByPin = new Map<number, HeldLine>();
 
   constructor(options: GpiodCliOptions = {}) {
     this.chip = options.chip ?? DEFAULT_CHIP;
     this.runner = options.runner ?? defaultRunner();
+    this.releaseTimeoutMs =
+      options.releaseTimeoutMs ?? DEFAULT_RELEASE_TIMEOUT_MS;
   }
 
   async setup(pins: readonly number[]): Promise<void> {
@@ -80,7 +103,7 @@ export class GpiodCliDriver implements GpioDriver {
     if (level === "high") {
       this.holdHigh(pin);
     } else {
-      this.releaseLine(pin);
+      await this.releaseLine(pin);
     }
   }
 
@@ -96,39 +119,55 @@ export class GpiodCliDriver implements GpioDriver {
   }
 
   async release(): Promise<void> {
-    for (const pin of [...this.heldByPin.keys()]) {
-      this.releaseLine(pin);
-    }
+    await Promise.all(
+      [...this.heldByPin.keys()].map((pin) => this.releaseLine(pin)),
+    );
   }
 
   private holdHigh(pin: number): void {
     if (this.heldByPin.has(pin)) {
       return;
     }
-    const child = this.runner.spawn("gpioset", [
-      "-c",
-      this.chip,
-      `${pin}=1`,
-    ]);
-    child.on("exit", () => {
-      if (this.heldByPin.get(pin) === child) {
+    const child = this.runner.spawn("gpioset", ["-c", this.chip, `${pin}=1`]);
+    const line: HeldLine = { child, exited: false };
+    // Resolve `exited` when the holder actually terminates, so releaseLine can
+    // await it. Track exit state directly (rather than only removing from the
+    // map) so a release that races the natural exit still resolves.
+    const markExited = (): void => {
+      line.exited = true;
+      line.resolveExit?.();
+      if (this.heldByPin.get(pin) === line) {
         this.heldByPin.delete(pin);
       }
-    });
-    child.on("error", () => {
-      if (this.heldByPin.get(pin) === child) {
-        this.heldByPin.delete(pin);
-      }
-    });
-    this.heldByPin.set(pin, child);
+    };
+    child.on("exit", markExited);
+    child.on("error", markExited);
+    this.heldByPin.set(pin, line);
   }
 
-  private releaseLine(pin: number): void {
-    const child = this.heldByPin.get(pin);
-    if (child) {
-      this.heldByPin.delete(pin);
-      child.kill();
+  /**
+   * Release a held line and wait for its `gpioset` holder to actually exit before
+   * resolving, so the kernel has released the line by the time a caller reads it
+   * back. Bounded by `releaseTimeoutMs` so a holder that fails to die cannot block
+   * de-energizing indefinitely. A pin with no holder resolves immediately.
+   */
+  private async releaseLine(pin: number): Promise<void> {
+    const line = this.heldByPin.get(pin);
+    if (!line) {
+      return;
     }
+    this.heldByPin.delete(pin);
+    if (line.exited) {
+      return;
+    }
+    const exited = new Promise<void>((resolve) => {
+      line.resolveExit = resolve;
+    });
+    line.child.kill();
+    if (line.exited) {
+      return;
+    }
+    await raceWithTimeout(exited, this.releaseTimeoutMs);
   }
 
   private requireConfigured(pin: number): void {
@@ -136,6 +175,21 @@ export class GpiodCliDriver implements GpioDriver {
       throw new Error(`pin ${pin} was not set up`);
     }
   }
+}
+
+/**
+ * Resolve when `promise` settles or when `timeoutMs` elapses, whichever comes
+ * first. Used to bound how long releasing a line waits for its holder to exit, so
+ * de-energizing cannot hang on a wedged process.
+ */
+function raceWithTimeout(promise: Promise<void>, timeoutMs: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs);
+    void promise.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 function parseLevel(output: string, pin: number): PinLevel {

@@ -19,6 +19,12 @@ libgpiod v2.2.1. It does not support the v1.x CLI.
 - An output is driven high by a long-lived `gpioset -c <chip> <pin>=1` process. In
   libgpiod v2 `gpioset` holds the requested value until the process exits (there
   is no `--mode` flag); killing it releases the line, which drives it low.
+- Driving a line low waits for the holding `gpioset` process to actually exit
+  before returning (bounded by a timeout so de-energizing cannot hang on a wedged
+  holder). This matters because in libgpiod v2 a held line is exclusively
+  reserved: killing the holder is asynchronous, so a read-back issued immediately
+  after would hit the still-reserved line and report it busy. Waiting for the exit
+  makes the controller's write-low-then-verify sequence deterministic.
 - Read-back uses `gpioget --numeric -c <chip> <pin>`, which the controller relies
   on to verify the off-state before energizing another circuit. `--numeric` makes
   v2 print `1`/`0` rather than `active`/`inactive`.

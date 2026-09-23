@@ -22,6 +22,9 @@ import {
 } from "../schedule/overrides";
 import type { ActiveManualRun } from "../schedule/manual-run";
 
+/** Which GPIO driver the process is running. */
+export type DriverKind = "fake" | "gpiod";
+
 /**
  * Everything the API needs from the rest of the system, injected so the app can be
  * tested against fakes. The API never touches hardware directly; it goes through
@@ -39,6 +42,12 @@ export interface ApiDeps {
   stopManualRun(): Promise<void>;
   activeManualRun(): ActiveManualRun | undefined;
   clock(): number;
+  /**
+   * Which GPIO driver the process is running: the real libgpiod driver
+   * (`"gpiod"`) or the in-memory simulation (`"fake"`). Surfaced in status so the
+   * UI can warn when no real relays are being switched.
+   */
+  driver: DriverKind;
   /**
    * Absolute path to the built SPA (the web-ui `dist` directory). When set and
    * present on disk, the app serves those static files and falls back to
@@ -85,6 +94,7 @@ export function createApp(deps: ApiDeps): Express {
         manualRun: deps.activeManualRun() ?? null,
         current: current ?? null,
         next: next ?? null,
+        driver: deps.driver,
       });
     }),
   );
