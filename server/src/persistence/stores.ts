@@ -80,6 +80,32 @@ export class HistoryStore {
     return next;
   }
 
+  /**
+   * Close the most recent still-open run (the newest record whose `end` is null)
+   * by setting its end time, then persist. Used when a run that was recorded at
+   * start (end: null) completes, so history reflects one record per run with its
+   * actual end rather than a duplicate. No-op if there is no open run.
+   */
+  async closeOpenRun(end: number): Promise<History> {
+    const current = await this.read();
+    let index = -1;
+    for (let i = current.runs.length - 1; i >= 0; i--) {
+      if (current.runs[i]?.end === null) {
+        index = i;
+        break;
+      }
+    }
+    if (index === -1) {
+      return current;
+    }
+    const runs = current.runs.map((run, i) =>
+      i === index ? { ...run, end } : run,
+    );
+    const next = { runs };
+    await this.file.write(next);
+    return next;
+  }
+
   private capped(history: History): History {
     if (history.runs.length <= this.retention) {
       return history;

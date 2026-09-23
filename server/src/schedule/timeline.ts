@@ -1,9 +1,9 @@
-import { SLOTS_PER_DAY } from "../persistence/schema";
+import { DateTime } from "luxon";
+import { SLOTS_PER_DAY, systemTimezone } from "../persistence/schema";
 import type { Configuration, Program } from "../persistence/schema";
 
 const MINUTES_PER_SLOT = 30;
 const MS_PER_MINUTE = 60_000;
-const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 
 /**
  * A concrete, absolute-time run of a single circuit: the circuit number, the epoch
@@ -27,33 +27,30 @@ export interface CurrentAndNext {
 }
 
 /**
- * Local-time helpers. The Pi runs in the household's local timezone, so day-of-
- * week and slot times are computed against local time.
- */
-function isoWeekday(date: Date): number {
-  const day = date.getDay();
-  return day === 0 ? 7 : day;
-}
-
-function startOfLocalDay(epochMs: number): number {
-  const date = new Date(epochMs);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-/**
- * Expand one program on a specific local day into candidate runs, with each step
- * running back-to-back from the program's start slot. These candidates carry the
- * program's intended start time and may overlap other programs' candidates; the
- * timeline serializes them afterwards.
+ * Expand one program on a specific calendar day into candidate runs, with each step
+ * running back-to-back from the program's start slot. The start slot is anchored to
+ * the given day's midnight *in the configured zone*, so a program's wall-clock time
+ * is honored across DST transitions (Luxon resolves the correct UTC instant for
+ * that zone and instant). Durations then accumulate in absolute milliseconds — a
+ * 20-minute run is always 20 real minutes, even across a DST change. These
+ * candidates carry the program's intended start time and may overlap other
+ * programs'; the timeline serializes them afterwards.
  */
 function expandProgramOnDay(
   program: Program,
-  dayStartMs: number,
+  dayStartInZone: DateTime,
 ): ScheduledRun[] {
   const runs: ScheduledRun[] = [];
-  let cursor =
-    dayStartMs + program.startSlot * MINUTES_PER_SLOT * MS_PER_MINUTE;
+  const startMinutes = program.startSlot * MINUTES_PER_SLOT;
+  // Anchor the program's start to the wall-clock time on this calendar day in the
+  // configured zone. Setting hour/minute (rather than adding a minute *duration*
+  // to midnight) yields the intended wall-clock time even across a DST transition:
+  // Luxon resolves the correct UTC instant for that local time.
+  const startOfRun = dayStartInZone.set({
+    hour: Math.floor(startMinutes / 60),
+    minute: startMinutes % 60,
+  });
+  let cursor = startOfRun.toMillis();
   for (const step of program.steps) {
     const durationMs = step.durationMinutes * MS_PER_MINUTE;
     runs.push({
@@ -92,9 +89,26 @@ function serialize(candidates: ScheduledRun[]): ScheduledRun[] {
 }
 
 /**
- * Build the non-overlapping, sequential timeline of circuit runs for the local day
- * containing `referenceMs` and the following day (enough to always resolve the
- * "next" run across a midnight boundary). A disabled schedule yields no runs.
+ * How many calendar days the timeline spans, starting from the reference day.
+ * Programs recur weekly, so covering eight days (the reference day plus the next
+ * seven) guarantees the "next" run is always found — including the case where a
+ * program runs only on the reference weekday and its time has already passed
+ * today, in which case next week's occurrence sits a full seven days out. This can
+ * include a weekday twice; that is harmless (current/next simply picks the
+ * earliest upcoming run).
+ */
+const TIMELINE_HORIZON_DAYS = 8;
+
+/**
+ * Build the non-overlapping, sequential timeline of circuit runs for the calendar
+ * day containing `referenceMs` and the following {@link TIMELINE_HORIZON_DAYS} days,
+ * computed in the configuration's timezone (enough to always resolve the "next" run
+ * for a weekly program, even one that runs on a single weekday). A disabled schedule
+ * yields no runs.
+ *
+ * All day/slot math happens in the configured zone via Luxon, so the schedule fires
+ * at its intended wall-clock time regardless of the server's system timezone and
+ * correctly across daylight-saving transitions.
  *
  * This function is pure: given the same configuration and reference time it always
  * returns the same timeline, with no timers or I/O.
@@ -107,14 +121,16 @@ export function buildTimeline(
     return [];
   }
 
-  const today = startOfLocalDay(referenceMs);
+  const zone = configuration.timezone || systemTimezone();
+  const startOfToday = DateTime.fromMillis(referenceMs, { zone }).startOf("day");
+
   const candidates: ScheduledRun[] = [];
-  for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
-    const dayStart = today + dayOffset * MS_PER_DAY;
-    const weekday = isoWeekday(new Date(dayStart));
+  for (let dayOffset = 0; dayOffset < TIMELINE_HORIZON_DAYS; dayOffset++) {
+    const day = startOfToday.plus({ days: dayOffset });
+    const weekday = day.weekday; // Luxon: 1 = Monday ... 7 = Sunday (ISO).
     for (const program of configuration.programs) {
       if (program.days.includes(weekday)) {
-        candidates.push(...expandProgramOnDay(program, dayStart));
+        candidates.push(...expandProgramOnDay(program, day));
       }
     }
   }

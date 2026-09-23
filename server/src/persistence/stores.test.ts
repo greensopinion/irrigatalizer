@@ -31,6 +31,7 @@ function sampleConfiguration(): Configuration {
     ],
     enabled: true,
     override: null,
+    timezone: "America/Vancouver",
   };
 }
 
@@ -136,6 +137,32 @@ describe("persistence stores", () => {
       await store.write({ runs: [run(1, 0), run(1, 1), run(1, 2), run(1, 3)] });
       const history = await store.read();
       expect(history.runs.map((r) => r.start)).toEqual([2, 3]);
+    });
+
+    it("closes the newest open run by setting its end", async () => {
+      const store = new HistoryStore(dataDir);
+      await store.append({ circuit: 1, start: 1000, end: null });
+      const after = await store.closeOpenRun(4000);
+      expect(after.runs).toEqual([{ circuit: 1, start: 1000, end: 4000 }]);
+      expect(await store.read()).toEqual(after);
+    });
+
+    it("closes only the most recent open run, leaving earlier closed runs intact", async () => {
+      const store = new HistoryStore(dataDir);
+      await store.append(run(1, 1000)); // already closed
+      await store.append({ circuit: 2, start: 5000, end: null }); // open
+      const after = await store.closeOpenRun(6000);
+      expect(after.runs).toEqual([
+        { circuit: 1, start: 1000, end: 2000 },
+        { circuit: 2, start: 5000, end: 6000 },
+      ]);
+    });
+
+    it("is a no-op when there is no open run", async () => {
+      const store = new HistoryStore(dataDir);
+      await store.append(run(1, 1000));
+      const after = await store.closeOpenRun(9999);
+      expect(after.runs).toEqual([{ circuit: 1, start: 1000, end: 2000 }]);
     });
   });
 });

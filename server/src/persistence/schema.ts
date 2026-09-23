@@ -74,6 +74,32 @@ export const OverrideSchema = z.object({
   expiresAt: z.number().int().nonnegative().nullable(),
 });
 
+/**
+ * The set of IANA timezone names the runtime knows about, used to validate the
+ * configured `timezone`. `Intl.supportedValuesOf` is available on modern Node; the
+ * fallback keeps validation permissive if it is somehow unavailable.
+ */
+const SUPPORTED_TIMEZONES: readonly string[] =
+  typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : [];
+
+/**
+ * A canonical IANA timezone name (e.g. `America/Vancouver`). This is the single
+ * zone the schedule is defined in: the backend expands programs against it and the
+ * UI displays times in it, so scheduling is unambiguous regardless of the server's
+ * system clock or any viewer's browser zone. Validated against the runtime's known
+ * zones when that list is available.
+ */
+export const TimezoneSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      SUPPORTED_TIMEZONES.length === 0 || SUPPORTED_TIMEZONES.includes(value),
+    { message: "unknown IANA timezone" },
+  );
+
 export const ConfigurationSchema = z.object({
   circuits: z.array(CircuitSchema),
   programs: z.array(ProgramSchema),
@@ -82,7 +108,26 @@ export const ConfigurationSchema = z.object({
    */
   enabled: z.boolean(),
   override: OverrideSchema.nullable(),
+  /**
+   * The canonical timezone the schedule is defined and displayed in. Defaults to
+   * the system zone so configurations written before this field existed (and fresh
+   * installs) load cleanly with a sensible value.
+   */
+  timezone: TimezoneSchema.default(systemTimezone),
 });
+
+/**
+ * The system's resolved IANA timezone, used as the default when a configuration
+ * does not specify one (e.g. a fresh install). Falls back to UTC if the runtime
+ * cannot resolve a zone.
+ */
+export function systemTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 
 /**
  * A single circuit run recorded when the scheduler transitions. Times are epoch
@@ -118,6 +163,7 @@ export function emptyConfiguration(): Configuration {
     programs: [],
     enabled: true,
     override: null,
+    timezone: systemTimezone(),
   };
 }
 

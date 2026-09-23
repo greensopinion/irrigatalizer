@@ -11,6 +11,41 @@ This project is in the early stages. Lots of features are missing.
 
 Continuous Integration: ![CI](https://github.com/greensopinion/irrigatalizer/workflows/CI/badge.svg)
 
+### Local development (with a fake GPIO driver)
+
+> Note: the sections below the "Related" heading describe the legacy system and
+> will be rewritten in Task 11. This section documents the current rewrite's local
+> dev flow.
+
+The app is a TypeScript Express backend (`server/`) that serves a Vite + React SPA
+(`web-ui/`). For development you can run the whole thing on a machine with **no
+GPIO hardware and no `gpiod` CLI** by using the in-memory fake driver:
+
+```sh
+npm install
+npm run dev:fake
+```
+
+This runs two processes together (via `concurrently`):
+
+- the backend on port **9000**, using the `FakeGpioDriver` (selected by
+  `GPIO_DRIVER=fake`) — pin state is held in memory and nothing shells out to
+  `gpioset`/`gpioget`;
+- the Vite dev server on port **5173**, which proxies `/api/*` to the backend.
+
+Open <http://localhost:5173>. Because the SPA calls the API same-origin and Vite
+proxies it, **only port 5173** needs to be reachable.
+
+`npm run dev` is the same flow but with the real libgpiod driver, which requires
+`gpiod` installed and access to `/dev/gpiochip0` — use `dev:fake` on a dev machine.
+
+#### Reaching it from another machine (e.g. a dev container)
+
+The Vite dev server binds all interfaces on a fixed port (`host: true`,
+`port: 5173`, `strictPort`), so it is reachable once that port is exposed to your
+host. Forward port `5173` from your editor's Ports panel, or publish it at the
+container level (see `.devcontainer/docker-compose.yml`).
+
 ### Related
 
 There are several related projects out there, most of which are more mature, have more features and are better supported:

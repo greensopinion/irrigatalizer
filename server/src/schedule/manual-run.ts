@@ -1,4 +1,13 @@
-import type { SchedulerController, TimeoutTimer } from "./scheduler";
+import type { RunRecorder, SchedulerController, TimeoutTimer } from "./scheduler";
+
+/**
+ * The history operations a manual run needs: record the run when it starts (with a
+ * null end) and close that open record with the actual end when it finishes.
+ * Satisfied by `HistoryStore`.
+ */
+export interface ManualRunHistory extends RunRecorder {
+  closeOpenRun(end: number): Promise<unknown>;
+}
 
 /**
  * A manual run in progress: the circuit and the epoch millisecond it will
@@ -24,6 +33,13 @@ export interface ManualRunOptions {
   scheduler: SchedulerSuspension;
   timer: TimeoutTimer;
   clock: () => number;
+  /**
+   * Records the manual run in history so it shows up in the dashboard, exactly
+   * like a scheduled run: an open record (end: null) is written when the run
+   * starts and closed with the actual end when it finishes. Optional so tests that
+   * don't care about history can omit it.
+   */
+  history?: ManualRunHistory;
   onError?: (error: unknown) => void;
 }
 
@@ -62,11 +78,27 @@ export class ManualRunController {
       await this.options.scheduler.suspend();
     } else {
       this.options.timer.cancel();
+      // Replacing a run already in progress: close its open history record before
+      // starting the new one, so we don't leave a dangling open run.
+      if (this.options.history) {
+        await this.options.history.closeOpenRun(this.options.clock());
+      }
     }
 
     await this.options.controller.turnOn(circuit);
-    const endsAt = this.options.clock() + durationMinutes * 60_000;
+    const startedAt = this.options.clock();
+    const endsAt = startedAt + durationMinutes * 60_000;
     this.active = { circuit, endsAt };
+    // Record the run as it starts with an open (null) end, so the dashboard shows
+    // it immediately as "on" without a spurious "off". The end is filled in on
+    // finish. Fire-and-forget: history must not block energizing the circuit.
+    if (this.options.history) {
+      await this.options.history.append({
+        circuit,
+        start: startedAt,
+        end: null,
+      });
+    }
     this.options.timer.schedule(durationMinutes * 60_000, () => {
       void this.finish();
     });
@@ -90,6 +122,11 @@ export class ManualRunController {
     this.active = undefined;
     try {
       await this.options.controller.safeOffAll();
+      // Close the open record opened at start with the actual end time, so an
+      // early stop records its true (shorter) duration.
+      if (this.options.history) {
+        await this.options.history.closeOpenRun(this.options.clock());
+      }
       await this.options.scheduler.resume();
     } catch (error) {
       this.options.onError?.(error);

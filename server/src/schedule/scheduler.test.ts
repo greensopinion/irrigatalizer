@@ -7,6 +7,8 @@ import type {
 } from "./scheduler";
 import type { Configuration, Program } from "../persistence/schema";
 
+const TEST_ZONE = "UTC";
+
 function localTime(
   year: number,
   month: number,
@@ -14,14 +16,20 @@ function localTime(
   hour = 0,
   minute = 0,
 ): number {
-  return new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
+  return Date.UTC(year, month - 1, day, hour, minute, 0, 0);
 }
 
 // 2026-06-01 is a Monday (ISO weekday 1).
 const DAY = { year: 2026, month: 6, day: 1 };
 
 function config(programs: Program[], enabled = true): Configuration {
-  return { circuits: [], programs, enabled, override: null };
+  return {
+    circuits: [],
+    programs,
+    enabled,
+    override: null,
+    timezone: TEST_ZONE,
+  };
 }
 
 function twoStepProgram(): Program {

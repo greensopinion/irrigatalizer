@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:fake": "GPIO_DRIVER=fake tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,10 +14,12 @@
   },
   "dependencies": {
     "express": "5.2.1",
+    "luxon": "3.7.1",
     "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
+    "@types/luxon": "3.7.5",
     "@types/supertest": "7.2.1",
     "supertest": "7.2.2",
     "tsup": "8.5.1",

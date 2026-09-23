@@ -1,0 +1,560 @@
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-strong: #0ea5e9;
+  --danger: #f87171;
+  --ok: #4ade80;
+  --warning: #fbbf24;
+  --radius: 12px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.app-header {
+  padding: 1rem 0 0.5rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* Tab bar: full-width, thumb-friendly on phones. */
+.tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  position: sticky;
+  top: 0;
+  padding: 0.5rem 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--accent-strong);
+  color: #04283a;
+}
+
+.app-main {
+  margin-top: 0.5rem;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+/* Cards */
+.status-card,
+.editor-card,
+.control-card,
+.program-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard,
+.editor,
+.controls {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Banners */
+.banner {
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
+.banner.disabled {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--danger);
+}
+
+.banner.override {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent);
+}
+
+.banner.warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+}
+
+/* Running status */
+.running {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.2);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.running.manual .dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.circuit-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.countdown {
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-2);
+  color: var(--accent);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+
+.idle,
+.empty,
+.muted {
+  color: var(--muted);
+  margin: 0;
+}
+
+.next-time {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sparkline */
+.sparkline-grid {
+  position: relative;
+  width: 100%;
+}
+
+.sparkline-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sparkline-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 0.5rem;
+}
+
+.sparkline-track {
+  position: absolute;
+  right: 0;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.sparkline-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-strong);
+  border-radius: 4px;
+  min-width: 2px;
+}
+
+.sparkline-bar.active {
+  background: var(--ok);
+}
+
+.sparkline-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Activity log */
+.activity-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.activity-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.activity-log time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Forms */
+input,
+select,
+button {
+  font: inherit;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.55rem 0.65rem;
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent-strong);
+  color: #04283a;
+}
+
+button.danger {
+  background: rgba(248, 113, 113, 0.2);
+  color: var(--danger);
+}
+
+.editor-header,
+.program-header,
+.steps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.switch input {
+  width: auto;
+}
+
+.timezone-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.75rem;
+}
+
+.timezone-picker span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.circuit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.circuit-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.circuit-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.circuit-list label input {
+  flex: 1;
+}
+
+.circuit-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem;
+}
+
+.circuit-pin {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.program-card {
+  background: var(--surface-2);
+}
+
+.program-name {
+  font-weight: 700;
+  max-width: 60%;
+}
+
+.days {
+  border: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.days legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--surface);
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.day-toggle input {
+  width: auto;
+}
+
+.start-time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.start-time span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.duration {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.duration input {
+  width: 4.5rem;
+}
+
+.duration span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.step-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.step-actions button {
+  padding: 0.4rem 0.5rem;
+}
+
+/* Keep the save action visible while editing any section of the form. */
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  bottom: 0;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0 1rem;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+
+.saved {
+  color: var(--ok);
+}
+
+.unsaved {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.error {
+  color: var(--danger);
+}
+
+/* Controls */
+.manual-form,
+.override-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.manual-form label,
+.rain-delay label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.manual-form label span,
+.rain-delay label span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.manual-active,
+.override-active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rain-delay {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.rain-delay label {
+  flex-direction: row;
+  align-items: center;
+}
+
+.rain-delay input {
+  width: 4.5rem;
+}
+
+/* Wider viewports: lay controls out side by side. */
+@media (min-width: 620px) {
+  .controls {
+    flex-direction: row;
+    gap: 1rem;
+  }
+  .controls > * {
+    flex: 1;
+  }
+}

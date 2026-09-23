@@ -1,4 +1,11 @@
-import express, { type Express, type Request, type Response } from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import { z } from "zod";
 import {
   ConfigurationSchema,
@@ -32,6 +39,13 @@ export interface ApiDeps {
   stopManualRun(): Promise<void>;
   activeManualRun(): ActiveManualRun | undefined;
   clock(): number;
+  /**
+   * Absolute path to the built SPA (the web-ui `dist` directory). When set and
+   * present on disk, the app serves those static files and falls back to
+   * `index.html` for client-side routes. When omitted or absent, only the API is
+   * served (e.g. during `vite dev`, which proxies `/api` to this process).
+   */
+  staticDir?: string;
 }
 
 const ManualRunRequestSchema = z.object({
@@ -152,7 +166,39 @@ export function createApp(deps: ApiDeps): Express {
     }),
   );
 
+  serveSpa(app, deps.staticDir);
+
   return app;
+}
+
+/**
+ * Serve the built SPA as static files with a client-side-routing fallback: any
+ * non-API GET that does not match a real file returns `index.html` so deep links
+ * work. API routes are already registered above, so they take precedence; unknown
+ * `/api/*` paths get a JSON 404 rather than the SPA shell. A missing or unset
+ * `staticDir` leaves the app API-only (the Vite dev server serves the SPA then).
+ */
+function serveSpa(app: Express, staticDir: string | undefined): void {
+  if (!staticDir || !existsSync(staticDir)) {
+    return;
+  }
+
+  app.use(express.static(staticDir));
+
+  const indexHtml = path.join(staticDir, "index.html");
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return next();
+    }
+    if (request.path.startsWith("/api/")) {
+      return response.status(404).json({ error: "Not found" });
+    }
+    response.sendFile(indexHtml, (error) => {
+      if (error) {
+        next(error);
+      }
+    });
+  });
 }
 
 function buildOverride(

@@ -206,7 +206,7 @@ alongside `requirements.md`. Check tasks off as they complete.
       release GPIO; the watchdog trip drives safe-off. Not yet started against real
       hardware (needs the Pi + `gpiod`); all logic is covered by the fake driver.
 
-- [ ] **Task 10 — Phone-first React SPA served by the backend; live via polling**
+- [x] **Task 10 — Phone-first React SPA served by the backend; live via polling**
   - Objective: Vite React app served as static files by the backend. Dashboard
     (current/next with local countdown, running status, readable history/sparkline,
     log), schedule/program editor with named circuits, manual run controls, skip/pause
@@ -216,6 +216,84 @@ alongside `requirements.md`. Check tasks off as they complete.
     smoke test that the built SPA loads against the running backend.
   - Demo: On a phone viewport: live status, edit a program with named circuits,
     trigger a manual run, apply a skip.
+  - Result: A phone-first React SPA under `web-ui/src`. A typed `api/client.ts`
+    (with `ApiError`) wraps the Task 9 REST endpoints; `useStatus` polls
+    `/api/status` every 5s (aborting on unmount) and derives a server/client clock
+    offset, and `useNow` ticks a 1s local clock so countdowns update between polls
+    without WebSockets. Three tabs: Dashboard (running/manual circuit with live
+    countdown, next run, a redesigned per-circuit history timeline replacing the old
+    dual sparklines, and an activity log reconstructed from history transitions —
+    the backend exposes no log endpoint; disabled and override banners included),
+    Schedule editor (named-circuit inputs plus programs with day toggles, a
+    30-minute start-slot select, and ordered per-circuit-duration steps, saved in
+    one PUT that safely restarts the scheduler), and Controls (manual run + skip
+    next / skip 24h / rain-delay-N-days, all through the backend so the invariant
+    and watchdog apply). The Express app now serves the built SPA statically with an
+    `index.html` fallback for client routes and a JSON 404 for unknown `/api/*`;
+    `staticDir` is injectable (`WEB_UI_DIST` or resolved beside the compiled server).
+    Tests: 16 web-ui component tests (Dashboard status rendering, ScheduleEditor
+    editing/save via `@testing-library/user-event`) and 6 server SPA tests including
+    a build-dependent smoke test that boots the API against the real `web-ui/dist`
+    and asserts the shell + injected module load. Full `npm run verify` (typecheck +
+    lint + 116 tests + build across both workspaces) is green.
+  - Testing-library note: added `@testing-library/user-event@14.6.6` (chosen as the
+    better tool for realistic interaction over the lower-level `fireEvent`; pinned to
+    the newest release older than the devcontainer's 21-day min-release-age).
+  - React-rules note: the SPA editor resets its draft from a changed prop via the
+    documented "store previous prop in state, adjust during render" pattern, and the
+    mount data-fetch is an explicit async effect — both to satisfy the strict
+    `react-hooks` lint rules without disabling them.
+  - Local dev flow (fake driver): `npm run dev:fake` runs the backend and the Vite
+    dev server together (via `concurrently`), with the backend selecting the
+    in-memory `FakeGpioDriver` through `GPIO_DRIVER=fake` so the whole UI is
+    exercisable on a machine with no GPIO hardware or `gpiod` CLI. `bootstrap()`
+    resolves the driver from `GPIO_DRIVER` (default: real `GpiodCliDriver`) and also
+    accepts an injected `driver`. Vite binds all interfaces on a fixed `5173`
+    (`host: true`, `strictPort`) and proxies `/api` to the backend, so only port
+    5173 needs forwarding to reach it from another machine. (`npm run dev` uses the
+    real driver and needs `gpiod` present.)
+  - UI gap fixed post-review: the schedule editor now has an "Add circuit"
+    affordance (adds the next free circuit number 1..8 with a default name and its
+    default BCM pin) and per-circuit "Remove" (which also drops any program steps
+    referencing the removed circuit), so a fresh empty configuration can be built up
+    entirely from the UI. The per-program button that appends a step was renamed
+    "Add step" to disambiguate it from "Add circuit". Each circuit row also shows its
+    read-only BCM GPIO pin (fixed by circuit number, matching legacy 1→17…8→16).
+  - Configurable timezone (post-review): the schedule now has a single canonical
+    IANA timezone stored in the configuration (`timezone`, validated against
+    `Intl.supportedValuesOf('timeZone')`, defaulting to the system zone). The
+    backend expands programs in that zone and the UI both edits (a timezone picker
+    on the Schedule tab) and displays all times in it, so scheduling is unambiguous
+    regardless of the server's system clock or any viewer's browser zone — resolving
+    the "which browser wins" question by making the config authoritative. This
+    matches legacy's implicit model (schedule in the Pi's local time) but makes the
+    zone explicit and editable. `timeline.ts` now uses **Luxon** for all day/slot
+    math: it anchors each run to its wall-clock time on the calendar day in the
+    configured zone (`DateTime.set({hour,minute})`, not a minute-duration added to
+    midnight — the latter lands on the wrong wall-clock time across a DST change),
+    while durations accumulate in absolute milliseconds. Covered by DST-transition
+    tests (America/New_York spring-forward). Dependency: `luxon` 3.7.1 + types.
+  - Scheduling bug fixed (post-review): `buildTimeline` previously expanded only the
+    reference day plus one, so a weekly program more than a day out never appeared
+    under "Next" (a Tuesday-only program showed nothing for the rest of Tuesday and
+    all week until it silently reappeared). The horizon is now eight days, which
+    guarantees the next occurrence of any weekly program is always found, including
+    the just-missed-today case whose next run is a full seven days out.
+  - Manual-run history fixed (post-review): manual runs went through the
+    `CircuitController` (so the invariant/watchdog applied) but were never recorded,
+    so a completed manual run left no trace in the dashboard's History or Activity.
+    `ManualRunController` now records the run and shows up like a scheduled run.
+    Refined after a follow-up: rather than writing a completed record at finish
+    (which made an in-progress run invisible and surfaced the *previous* run's
+    "turned off" as if it were the new run's), the run is recorded **at start with
+    a null end** and that open record is **closed with the actual end at finish**
+    (an early stop records its true, shorter duration; starting a replacement run
+    closes any still-open record first). `HistoryStore.closeOpenRun(end)` sets the
+    end on the newest open record; `ManualRunController` depends on a narrow
+    `ManualRunHistory` (append + closeOpenRun). The UI already handled open records
+    (activity shows only "turned on"; the sparkline draws an active bar to now).
+    Covered by API tests (open-at-start, closed-on-complete with no duplicate,
+    early-stop) and `HistoryStore.closeOpenRun` unit tests.
 
 - [ ] **Task 11 — Finalize wiring, deploy scripts, README**
   - Objective: New server is the single entrypoint serving SPA + API; update

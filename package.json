@@ -25,11 +25,14 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "dev": "concurrently --kill-others --names \"server,web-ui\" --prefix-colors \"blue,magenta\" \"npm run dev --workspace=server\" \"npm run dev --workspace=web-ui\"",
+    "dev:fake": "concurrently --kill-others --names \"server,web-ui\" --prefix-colors \"blue,magenta\" \"npm run dev:fake --workspace=server\" \"npm run dev --workspace=web-ui\"",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
+    "concurrently": "10.0.5",
     "eslint": "10.9.1",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.5",

@@ -3,8 +3,17 @@ import { buildTimeline, currentAndNext } from "./timeline";
 import type { Configuration, Program } from "../persistence/schema";
 
 /**
- * Build a local-time epoch for a given date and time-of-day so tests are
- * independent of the machine timezone.
+ * The fixed timezone these tests run the schedule in. Configs carry it explicitly
+ * and `localTime` builds epochs in the same zone, so results are deterministic
+ * regardless of the machine's system timezone. UTC has no DST, keeping the basic
+ * expansion tests simple (a dedicated test below covers a DST transition).
+ */
+const TEST_ZONE = "UTC";
+
+/**
+ * Build an epoch for a given date and time-of-day in {@link TEST_ZONE}. Because the
+ * zone is UTC, `Date.UTC` is the exact match for what the zone-aware timeline
+ * computes.
  */
 function localTime(
   year: number,
@@ -13,14 +22,20 @@ function localTime(
   hour = 0,
   minute = 0,
 ): number {
-  return new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
+  return Date.UTC(year, month - 1, day, hour, minute, 0, 0);
 }
 
 // 2026-06-01 is a Monday (ISO weekday 1).
 const MONDAY = { year: 2026, month: 6, day: 1 };
 
 function config(programs: Program[], enabled = true): Configuration {
-  return { circuits: [], programs, enabled, override: null };
+  return {
+    circuits: [],
+    programs,
+    enabled,
+    override: null,
+    timezone: TEST_ZONE,
+  };
 }
 
 function program(overrides: Partial<Program>): Program {
@@ -43,12 +58,18 @@ describe("buildTimeline", () => {
     expect(timeline).toEqual([]);
   });
 
-  it("returns nothing on a day the program does not run", () => {
-    // Reference on Tuesday; program only runs Mondays, and Wednesday is the
-    // following day, so neither day in the window matches.
+  it("finds a weekly program's next occurrence later in the week", () => {
+    // Reference on Tuesday; program only runs Mondays. The next Monday is 6 days
+    // out — within the week-long horizon — so it must be found (this is the
+    // weekly-lookahead case the 2-day window used to miss).
     const tuesday = localTime(2026, 6, 2, 5);
     const timeline = buildTimeline(config([program({ days: [1] })]), tuesday);
-    expect(timeline).toEqual([]);
+    const nextMondaySixAm = localTime(2026, 6, 8, 6);
+    expect(timeline).toHaveLength(1);
+    expect(timeline[0]).toMatchObject({
+      circuit: 1,
+      start: nextMondaySixAm,
+    });
   });
 
   it("expands a program's steps back-to-back from its start slot", () => {
@@ -66,8 +87,10 @@ describe("buildTimeline", () => {
       localTime(MONDAY.year, MONDAY.month, MONDAY.day, 0),
     );
 
+    // Assert the first occurrence's three back-to-back steps. (The horizon spans
+    // eight days, so a Monday-only program viewed on Monday also includes next
+    // Monday's occurrence; we only check the imminent one here.)
     const sixAm = localTime(MONDAY.year, MONDAY.month, MONDAY.day, 6);
-    expect(timeline).toHaveLength(3);
     expect(timeline[0]).toMatchObject({ circuit: 1, start: sixAm });
     expect(timeline[0]?.end).toBe(sixAm + 10 * 60_000);
     expect(timeline[1]).toMatchObject({
@@ -104,6 +127,60 @@ describe("buildTimeline", () => {
       circuit: 2,
       start: sixAm + 40 * 60_000,
     });
+  });
+});
+
+describe("timezone handling", () => {
+  const NY = "America/New_York";
+
+  function nyConfig(programs: Program[]): Configuration {
+    return {
+      circuits: [],
+      programs,
+      enabled: true,
+      override: null,
+      timezone: NY,
+    };
+  }
+
+  it("honors the wall-clock start time across a spring-forward DST transition", () => {
+    // America/New_York springs forward on 2026-03-08 (02:00 -> 03:00), EST (UTC-5)
+    // to EDT (UTC-4). A program at 06:00 local on that Sunday should resolve to
+    // 06:00 EDT = 10:00 UTC, proving the offset is taken for the target instant,
+    // not "now".
+    const sundayProgram = program({
+      days: [7], // Sunday
+      startSlot: 12, // 06:00 local
+      steps: [{ circuit: 1, durationMinutes: 30 }],
+    });
+    // Reference: Sunday 2026-03-08 at 00:30 EST (05:30 UTC), before the run and
+    // unambiguously on the target day in NY.
+    const referenceUtc = Date.UTC(2026, 2, 8, 5, 30);
+    const timeline = buildTimeline(nyConfig([sundayProgram]), referenceUtc);
+    // 06:00 EDT on 2026-03-08 == 10:00 UTC.
+    const expectedStart = Date.UTC(2026, 2, 8, 10);
+    const run = timeline.find((r) => r.start === expectedStart);
+    expect(run).toBeDefined();
+    // Duration is 30 real minutes regardless of the transition.
+    expect(run?.end).toBe(expectedStart + 30 * 60_000);
+  });
+
+  it("resolves the same wall-clock slot to different UTC instants on either side of DST", () => {
+    const dailySixAm = program({
+      days: [1, 2, 3, 4, 5, 6, 7],
+      startSlot: 12, // 06:00 local
+      steps: [{ circuit: 1, durationMinutes: 10 }],
+    });
+    // Reference Saturday 2026-03-07 at 12:00 EST (17:00 UTC): the Saturday 06:00
+    // local run is EST (UTC-5) == 11:00 UTC.
+    const fromSaturday = buildTimeline(
+      nyConfig([dailySixAm]),
+      Date.UTC(2026, 2, 7, 17),
+    );
+    expect(fromSaturday.find((r) => r.start === Date.UTC(2026, 2, 7, 11))).toBeDefined();
+    // The following day's 06:00 run is after the spring-forward: EDT (UTC-4) ==
+    // 10:00 UTC. The one-hour difference proves the per-instant offset.
+    expect(fromSaturday.find((r) => r.start === Date.UTC(2026, 2, 8, 10))).toBeDefined();
   });
 });
 
@@ -147,13 +224,16 @@ describe("currentAndNext", () => {
     expect(result.current?.circuit).toBe(2);
   });
 
-  it("reports no current and no next after the schedule ends", () => {
+  it("after today's run ends, reports next week's occurrence as next", () => {
     const result = currentAndNext(
       timeline,
       localTime(MONDAY.year, MONDAY.month, MONDAY.day, 7),
     );
     expect(result.current).toBeUndefined();
-    expect(result.next).toBeUndefined();
+    // The weekly program recurs; the next run is the following Monday at 06:00.
+    const nextMondaySixAm = localTime(2026, 6, 8, 6);
+    expect(result.next?.circuit).toBe(1);
+    expect(result.next?.start).toBe(nextMondaySixAm);
   });
 });
 

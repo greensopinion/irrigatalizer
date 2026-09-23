@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "5173:5173"   # dev server web UI
+      - "9000:9000"   # backend API 
     volumes:
       # Bind mount: project source from Mac (writable — needed for development)
       - ..:/workspace:cached
