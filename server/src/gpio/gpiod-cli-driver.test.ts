@@ -77,11 +77,11 @@ describe("GpiodCliDriver", () => {
     await driver.setup([17, 27]);
   });
 
-  it("holds a line high with gpioset --mode=signal on the default chip", async () => {
+  it("holds a line high with gpioset on the default chip", async () => {
     await driver.write(17, "high");
     const spawn = runner.lastSpawn();
     expect(spawn.command).toBe("gpioset");
-    expect(spawn.args).toEqual(["--mode=signal", "gpiochip0", "17=1"]);
+    expect(spawn.args).toEqual(["-c", "gpiochip0", "17=1"]);
   });
 
   it("de-energizes by killing the held process", async () => {
@@ -105,7 +105,7 @@ describe("GpiodCliDriver", () => {
 
     const lastRun = runner.runs.at(-1);
     expect(lastRun?.command).toBe("gpioget");
-    expect(lastRun?.args).toEqual(["gpiochip0", "27"]);
+    expect(lastRun?.args).toEqual(["--numeric", "-c", "gpiochip0", "27"]);
   });
 
   it("throws on unexpected gpioget output", async () => {
@@ -157,10 +157,6 @@ describe("GpiodCliDriver", () => {
     });
     await customDriver.setup([20]);
     await customDriver.write(20, "high");
-    expect(customRunner.lastSpawn().args).toEqual([
-      "--mode=signal",
-      "gpiochip4",
-      "20=1",
-    ]);
+    expect(customRunner.lastSpawn().args).toEqual(["-c", "gpiochip4", "20=1"]);
   });
 });

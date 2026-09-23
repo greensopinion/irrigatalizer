@@ -4,3 +4,6 @@ build/
 coverage/
 *.log
 .DS_Store
+
+# Deployment config (per-operator host details / secrets)
+infra/config.env

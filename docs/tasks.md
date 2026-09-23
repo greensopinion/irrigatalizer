@@ -295,7 +295,7 @@ alongside `requirements.md`. Check tasks off as they complete.
     Covered by API tests (open-at-start, closed-on-complete with no duplicate,
     early-stop) and `HistoryStore.closeOpenRun` unit tests.
 
-- [ ] **Task 11 — Finalize wiring, deploy scripts, README**
+- [~] **Task 11 — Finalize wiring, deploy scripts, README**
   - Objective: New server is the single entrypoint serving SPA + API; update
     release/deploy scripts and pm2 config for the new build; rewrite `README.md` for
     the new architecture and Pi setup (including the normally-closed wiring note).
@@ -306,3 +306,31 @@ alongside `requirements.md`. Check tasks off as they complete.
     dry-run release packaging locally.
   - Demo: A single built artifact starts the server, serves the SPA, controls the
     fake (or real) driver end-to-end; old code absent from `main`.
+  - Deploy IaC (done): SSH-driven infrastructure-as-code under `infra/` provisions
+    and deploys to a bare Raspberry Pi OS Lite (arm64) install (bookworm or later;
+    provisioned and confirmed on Debian 13 trixie with libgpiod v2.2.1).
+    `provision.sh` does one-time system setup (installs the libgpiod v2 `gpiod`
+    CLI, Node via NodeSource, and pm2; creates an unprivileged service user in the
+    `gpio` group with its home at the data dir; makes the app/data dirs; adds a
+    persistent port `80 -> APP_PORT` iptables redirect; registers pm2's boot
+    service). `package.sh` runs `npm run verify` and assembles a release tarball
+    (compiled `server/dist` + built `web-ui/dist` + the pm2 `ecosystem.config.cjs`
+    + a generated runtime `package.json` carrying only the server's production
+    deps, so `npm install --omit=dev` resolves express/luxon/zod). `deploy.sh`
+    ships the tarball, extracts it into `APP_DIR`, installs runtime deps, writes
+    the runtime env, and `pm2 reload`/`start` + `pm2 save`. Connection/install
+    settings live in `infra/config.env` (git-ignored; `.example` committed).
+    Persisted config/history live at `<DATA_DIR>/.irrigatalizer` (the pm2 config
+    points `HOME` there) so they survive the wholesale `APP_DIR` replacement on
+    each deploy. `package.sh` verified locally (build green, tarball layout
+    correct); the remote `provision.sh`/`deploy.sh` have not been run against a Pi
+    (requires explicit authorization) and the GPIO driver is not yet
+    hardware-validated. Added an ESLint override for `infra/**/*.cjs` (CommonJS
+    globals) so the repo-wide `verify` lint accepts the pm2 config.
+  - GPIO driver on libgpiod v2 (done): `GpiodCliDriver` now targets the libgpiod
+    v2 CLI (bookworm and later) — `gpioset -c <chip> <pin>=1` holding until the
+    process is killed, and `gpioget --numeric -c <chip> <pin>` for read-back — and
+    no longer supports the v1.x syntax. `docs/gpio-driver.md` updated accordingly.
+  - Remaining: rewrite `README.md` for the new architecture (the current file still
+    documents the legacy Node 12 / `index.js` / old pm2 flow below the "Related"
+    heading) and confirm the deploy end-to-end on a Pi with real hardware.

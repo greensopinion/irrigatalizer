@@ -42,16 +42,20 @@ export interface GpiodCliOptions {
 const DEFAULT_CHIP = "gpiochip0";
 
 /**
- * Drives relays through the libgpiod v1.x command-line tools instead of a native
+ * Drives relays through the libgpiod v2 command-line tools instead of a native
  * addon, avoiding node-gyp, a compiler, and Node-version coupling. Only the
- * `gpiod` package needs to be installed on the Pi.
+ * `gpiod` package needs to be installed on the Pi (Debian 12 bookworm and later
+ * ship libgpiod v2).
  *
- * A line is held high by a long-lived `gpioset --mode=signal` process; killing
- * that process releases the line, driving it low. This also fails safe: if the
- * Node process dies, its child `gpioset` processes die too and the relays
+ * A line is held high by a long-lived `gpioset` process. Under libgpiod v2,
+ * `gpioset` holds the requested value until the process exits by default (no
+ * `--mode` flag), and exiting releases the line, driving it low. This fails safe:
+ * if the Node process dies, its child `gpioset` processes die too and the relays
  * de-energize (with normally-closed wiring, water stops).
  *
- * Read-back uses `gpioget`. All arguments are passed as an argv array, never an
+ * The chip is passed as `-c <chip>` so that lines are addressed by numeric offset
+ * rather than name. Read-back uses `gpioget --numeric` (v2 otherwise prints
+ * `active`/`inactive`). All arguments are passed as an argv array, never an
  * interpolated shell string.
  */
 export class GpiodCliDriver implements GpioDriver {
@@ -82,7 +86,12 @@ export class GpiodCliDriver implements GpioDriver {
 
   async read(pin: number): Promise<PinLevel> {
     this.requireConfigured(pin);
-    const output = await this.runner.run("gpioget", [this.chip, String(pin)]);
+    const output = await this.runner.run("gpioget", [
+      "--numeric",
+      "-c",
+      this.chip,
+      String(pin),
+    ]);
     return parseLevel(output, pin);
   }
 
@@ -97,7 +106,7 @@ export class GpiodCliDriver implements GpioDriver {
       return;
     }
     const child = this.runner.spawn("gpioset", [
-      "--mode=signal",
+      "-c",
       this.chip,
       `${pin}=1`,
     ]);

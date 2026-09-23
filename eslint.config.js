@@ -15,6 +15,22 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // CommonJS deployment helpers (pm2 config) run under Node, not the bundler.
+    files: ["infra/**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        __dirname: "readonly",
+        process: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
     files: ["web-ui/**/*.{ts,tsx}"],
     plugins: {
       "react-hooks": reactHooks,

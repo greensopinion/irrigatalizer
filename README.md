@@ -13,10 +13,6 @@ Continuous Integration: ![CI](https://github.com/greensopinion/irrigatalizer/wor
 
 ### Local development (with a fake GPIO driver)
 
-> Note: the sections below the "Related" heading describe the legacy system and
-> will be rewritten in Task 11. This section documents the current rewrite's local
-> dev flow.
-
 The app is a TypeScript Express backend (`server/`) that serves a Vite + React SPA
 (`web-ui/`). For development you can run the whole thing on a machine with **no
 GPIO hardware and no `gpiod` CLI** by using the in-memory fake driver:
@@ -46,99 +42,55 @@ The Vite dev server binds all interfaces on a fixed port (`host: true`,
 host. Forward port `5173` from your editor's Ports panel, or publish it at the
 container level (see `.devcontainer/docker-compose.yml`).
 
-### Related
+## Deploying to a Raspberry Pi
+
+Deployment is infrastructure-as-code under [`infra/`](infra/), driven over SSH from
+your machine against a bare **Raspberry Pi OS Lite (arm64)** install (Debian 12
+bookworm or later). See [`infra/README.md`](infra/README.md) for the full guide.
+
+In short:
+
+```sh
+cp infra/config.env.example infra/config.env   # set PI_HOST, PI_USER, etc.
+./infra/provision.sh                            # one-time system setup on the Pi
+./infra/deploy.sh                               # build, ship, install, (re)start
+```
+
+- `provision.sh` installs the libgpiod v2 CLI (`gpiod`), Node.js, and pm2; creates
+  an unprivileged service user in the `gpio` group; and sets up a persistent
+  port `80 -> app` redirect so the app runs without root.
+- `deploy.sh` runs the local verification/build, packages the compiled server plus
+  the built SPA into a tarball, and installs it on the Pi under pm2 (`npm install
+  --omit=dev` pulls only the runtime dependencies). Redeploys reload with near-zero
+  downtime; persisted config and history live outside the app directory and survive
+  redeploys.
+
+The controller is a single Node process: it owns GPIO, the scheduler, persistence,
+and the API, and serves the built SPA. It is local-network only with no
+authentication, by design.
+
+### Wiring: normally-closed relays
+
+Wire the relays **normally-closed** so that loss of power or the controlling
+process de-energizes the valves and stops watering. Each active line is held high
+by a child process, so if the Node process dies the line releases; combined with
+normally-closed wiring, that fails safe. This is a wiring convention, not something
+the software enforces.
+
+### GPIO on libgpiod v2
+
+The GPIO driver targets **libgpiod v2** (the version on bookworm and later); it
+does not support the older v1.x CLI. See [`docs/gpio-driver.md`](docs/gpio-driver.md)
+for details. The driver is not yet hardware-validated — confirm pin toggling on the
+Pi before trusting it with real valves.
+
+## Related
 
 There are several related projects out there, most of which are more mature, have more features and are better supported:
 
 - [Open Sprinkler](https://github.com/OpenSprinkler)
 - [Raspberry Pi Controlled Irrigation System (Instructables)](https://www.instructables.com/id/Raspberry-Pi-Controlled-Irrigation-System/)
 - [SIP (Sustainable Irrigation Platform)](https://dan-in-ca.github.io/SIP/)
-
-## Application
-
-### Configuration
-
-The irrigation schedule can be configured using a web browser. Normally this would occur over WiFi by having your computer or phone on the same wireless network as the Raspberry Pi.
-
-#### Schedule
-
-![Schedule](dev-site/schedule.png)
-
-Click on the schedule to add or remove a scheduled watering:
-
-![Schedule](dev-site/schedule-entry.png)
-
-#### Dashboard
-
-![Dashboard](dev-site/dashboard.png)
-
-### Start
-
-```sh
-$ node index.js
-Server listening on port 8000...
-```
-
-It's recommended to use a NodeJS process management system to ensure that the process runs as a daemon. Examples are [pm2](https://pm2.io) and [forever](https://github.com/foreversd/forever).
-
-### Start Development Mode
-
-Development mode rebuilds the application when files are changed, to enable quick experimentation.
-
-```sh
-$ npm run start-dev
-Server listening on port 8000...
-```
-
-## Pi Setup
-
-### NodeJS 12
-
-Follow Debian instructions here: [github.com/nodesource/distributions](https://github.com/nodesource/distributions/blob/master/README.md)
-
-### Daemon and Process Management
-
-Install [pm2](https://pm2.io):
-
-```sh
-sudo npm install pm2 -g
-pm2 startup
-```
-
-Follow [pm2](https://pm2.io) instructions to setup pm2 to start with systemd
-
-#### Configure pm2
-
-```sh
-pm2 start index.js --name irrigatalizer
-```
-
-#### Handy pm2 Commands
-
-```sh
-pm2 ls
-pm2 stop irrigatalizer
-pm2 start irrigatalizer
-pm2 save
-pm2 monit
-pm2 logs
-```
-
-### Networking
-
-#### Firewall and Port 80
-
-Redirect port 80 to port 8000 so that root access is not needed:
-
-```sh
-sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8000
-```
-
-Also see [saving-iptables-firewall-rules-permanently](https://discourse.osmc.tv/t/saving-iptables-firewall-rules-permanently/7286/7) to have that stick on reboot.
-
-#### SSH
-
-[Raspberry Pi SSH Setup](https://www.greensopinion.com/2020/04/26/raspberry-pi-ssh-setup.html)
 
 ## License
 

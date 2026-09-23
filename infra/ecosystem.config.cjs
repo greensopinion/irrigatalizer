@@ -1,0 +1,73 @@
+// pm2 process definition for the Irrigatalizer controller.
+//
+// This file ships inside the release tarball and is executed on the Pi by pm2.
+// deploy.sh writes an `infra.env` next to it (from config.env) so the concrete
+// paths/port/driver land here without being baked into the committed file.
+//
+// The controller is a single long-lived Node process that owns GPIO, the
+// scheduler, persistence, and the API, and serves the built SPA. It must stay
+// resident and restart on crash so the safety machinery (boot safe-off, crash
+// handlers, watchdog) governs the relays.
+
+const path = require("node:path");
+const fs = require("node:fs");
+
+// Directory this config lives in on the Pi (APP_DIR).
+const appDir = __dirname;
+
+// Load deploy-time settings written by deploy.sh. Falls back to sensible
+// defaults so `pm2 start ecosystem.config.cjs` still works if run by hand.
+function loadEnv() {
+  const envFile = path.join(appDir, "infra.env");
+  const env = {};
+  if (fs.existsSync(envFile)) {
+    for (const raw of fs.readFileSync(envFile, "utf8").split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq === -1) continue;
+      const key = line.slice(0, eq).trim();
+      const value = line.slice(eq + 1).trim().replace(/^"|"$/g, "");
+      env[key] = value;
+    }
+  }
+  return env;
+}
+
+const deployEnv = loadEnv();
+
+const runtimeEnv = {
+  NODE_ENV: "production",
+  PORT: deployEnv.APP_PORT || "9000",
+  // Absolute path to the built SPA so the server never has to guess. It sits
+  // beside the compiled server inside the release: <APP_DIR>/web-ui/dist.
+  WEB_UI_DIST: path.join(appDir, "web-ui", "dist"),
+  // The JSON stores live at `$HOME/.irrigatalizer`. Point HOME at the explicit,
+  // redeploy-safe data directory so config/history persist outside APP_DIR
+  // (which is replaced wholesale on each deploy). Data then lives at
+  // <DATA_HOME>/.irrigatalizer.
+  HOME: deployEnv.DATA_HOME || appDir,
+};
+
+if (deployEnv.GPIO_DRIVER) {
+  runtimeEnv.GPIO_DRIVER = deployEnv.GPIO_DRIVER;
+}
+
+module.exports = {
+  apps: [
+    {
+      name: "irrigatalizer",
+      script: path.join(appDir, "server", "dist", "index.js"),
+      cwd: appDir,
+      interpreter: "node",
+      exec_mode: "fork",
+      instances: 1,
+      autorestart: true,
+      max_restarts: 20,
+      // Give the process room; a restart storm should back off, not hammer.
+      restart_delay: 2000,
+      kill_timeout: 8000,
+      env: runtimeEnv,
+    },
+  ],
+};
