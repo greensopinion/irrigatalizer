@@ -13,7 +13,11 @@ export interface SchedulerController {
 }
 
 /**
- * Records circuit runs as they transition. Satisfied by `HistoryStore.append`.
+ * Records circuit runs as they transition. A run is written with an open
+ * (`end: null`) record when it starts and closed with its ACTUAL end when it
+ * stops — the same open-record convention manual runs use — so the dashboard
+ * shows an in-progress run correctly and never renders a future "turned off".
+ * Satisfied by `HistoryStore`.
  */
 export interface RunRecorder {
   append(record: {
@@ -21,6 +25,10 @@ export interface RunRecorder {
     start: number;
     end: number | null;
   }): Promise<unknown>;
+  /**
+   * Close the newest still-open run record, setting its end to `end`.
+   */
+  closeOpenRun(end: number): Promise<unknown>;
 }
 
 /**
@@ -96,19 +104,32 @@ export class Scheduler {
   async stop(): Promise<void> {
     this.running = false;
     this.options.timer.cancel();
-    this.activeRun = undefined;
+    await this.closeActiveRun();
     await this.options.controller.safeOffAll();
   }
 
   /**
    * Pause automatic scheduling without driving circuits off, yielding hardware
    * control to a manual run. Unlike `stop`, this does not safe-off: the manual run
-   * owns the relay while suspended.
+   * owns the relay while suspended. Any active scheduled run has ended (the manual
+   * run takes over), so its open record is closed.
    */
   async suspend(): Promise<void> {
     this.running = false;
     this.options.timer.cancel();
+    await this.closeActiveRun();
+  }
+
+  /**
+   * Close the currently-active run's open history record at the current time, if a
+   * run is active. Idempotent: clears `activeRun` so a later close is a no-op.
+   */
+  private async closeActiveRun(): Promise<void> {
+    if (!this.activeRun) {
+      return;
+    }
     this.activeRun = undefined;
+    await this.options.history.closeOpenRun(this.options.clock());
   }
 
   /**
@@ -153,22 +174,31 @@ export class Scheduler {
   ): Promise<void> {
     if (current) {
       if (!this.activeRun || this.activeRun.start !== current.start) {
+        // Transitioning to a new run: close the previous run's open record at the
+        // actual transition time before opening the new one.
+        if (this.activeRun) {
+          await this.options.history.closeOpenRun(now);
+        }
         await this.options.controller.turnOn(current.circuit);
         this.activeRun = current;
+        // Record with an open end; it is closed with the real end when the run
+        // stops. Writing the scheduled end up front would render a "turned off"
+        // dated in the future and never record the actual end.
         await this.options.history.append({
           circuit: current.circuit,
           start: current.start,
-          end: current.end,
+          end: null,
         });
       }
       return;
     }
 
     if (this.activeRun) {
+      // Run just ended (now idle): close its open record with the actual end.
       this.activeRun = undefined;
+      await this.options.history.closeOpenRun(now);
     }
     await this.options.controller.safeOffAll();
-    void now;
   }
 
   private scheduleNextWake(

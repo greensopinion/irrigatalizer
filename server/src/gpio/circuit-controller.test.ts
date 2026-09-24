@@ -99,39 +99,26 @@ describe("CircuitController", () => {
   });
 
   describe("failure handling leaves nothing on", () => {
-    it("refuses to energize when another circuit cannot be verified off", async () => {
-      const stuckDriver = new FakeGpioDriver({
-        stuckHighPins: new Set([pinOf(1)]),
+    it("refuses to energize when driving another circuit off fails", async () => {
+      // A low-write to a peer pin fails, so the controller cannot drive all
+      // others off and must refuse to energize the target.
+      const failDriver = new FakeGpioDriver({
+        failWriteOnPins: new Set([pinOf(1)]),
       });
-      const stuckController = new CircuitController(stuckDriver, CIRCUIT_PINS);
-      await stuckDriver.setup(CIRCUIT_PINS.map((entry) => entry.pin));
+      const failController = new CircuitController(failDriver, CIRCUIT_PINS);
+      await failDriver.setup(CIRCUIT_PINS.map((entry) => entry.pin));
 
-      await expect(stuckController.turnOn(2)).rejects.toBeInstanceOf(
+      await expect(failController.turnOn(2)).rejects.toBeInstanceOf(
         SafetyViolationError,
       );
-      expect(stuckController.activeCircuit()).toBeUndefined();
-      // The would-be target pin is never driven high when a peer is unsafe.
+      expect(failController.activeCircuit()).toBeUndefined();
+      // The would-be target pin is never driven high when a peer cannot be
+      // driven off.
       expect(
-        stuckDriver.writeLog.some(
+        failDriver.writeLog.some(
           (entry) => entry.pin === pinOf(2) && entry.level === "high",
         ),
       ).toBe(false);
-    });
-
-    it("leaves nothing on when a peer read fails during verification", async () => {
-      const readFailDriver = new FakeGpioDriver({
-        failReadOnPins: new Set([pinOf(1)]),
-      });
-      const readFailController = new CircuitController(
-        readFailDriver,
-        CIRCUIT_PINS,
-      );
-      await readFailDriver.setup(CIRCUIT_PINS.map((entry) => entry.pin));
-
-      await expect(readFailController.turnOn(2)).rejects.toBeInstanceOf(
-        SafetyViolationError,
-      );
-      expect(readFailController.activeCircuit()).toBeUndefined();
     });
 
     it("clears the active circuit when energizing the target write fails", async () => {
@@ -151,25 +138,26 @@ describe("CircuitController", () => {
       expect(writeFailDriver.highPins()).toEqual([]);
     });
 
-    it("attempts every pin and reports failure when one cannot be verified off", async () => {
+    it("attempts every pin and reports failure when one cannot be driven off", async () => {
       const partialDriver = new FakeGpioDriver({
-        stuckHighPins: new Set([pinOf(2)]),
+        failWriteOnPins: new Set([pinOf(2)]),
       });
       const partialController = new CircuitController(
         partialDriver,
         CIRCUIT_PINS,
       );
       await partialDriver.setup(CIRCUIT_PINS.map((entry) => entry.pin));
-      await partialDriver.write(pinOf(1), "high");
-      await partialDriver.write(pinOf(3), "high");
       partialDriver.writeLog.length = 0;
 
       await expect(partialController.safeOffAll()).rejects.toBeInstanceOf(
         SafetyViolationError,
       );
-      // A single unverifiable pin does not stop the others from being driven
-      // off: every configured pin receives a low write despite the failure.
+      // A single failing pin does not stop the others from being driven off:
+      // every configured pin except the failing one receives a low write.
       for (const { pin } of CIRCUIT_PINS) {
+        if (pin === pinOf(2)) {
+          continue;
+        }
         expect(
           partialDriver.writeLog.some(
             (entry) => entry.pin === pin && entry.level === "low",

@@ -29,17 +29,15 @@ describe("FakeGpioDriver", () => {
     await expect(driver.read(17)).rejects.toThrow(/after release/);
   });
 
-  it("injects write, read, and stuck-high faults", async () => {
+  it("injects a write fault on the configured pin", async () => {
     const driver = new FakeGpioDriver({
       failWriteOnPins: new Set([17]),
-      failReadOnPins: new Set([27]),
-      stuckHighPins: new Set([22]),
     });
-    await driver.setup([17, 27, 22]);
+    await driver.setup([17, 27]);
 
     await expect(driver.write(17, "low")).rejects.toThrow(/write failure/);
-    await expect(driver.read(27)).rejects.toThrow(/read failure/);
-    await driver.write(22, "low");
-    expect(await driver.read(22)).toBe("high");
+    // Other pins are unaffected.
+    await driver.write(27, "high");
+    expect(await driver.read(27)).toBe("high");
   });
 });

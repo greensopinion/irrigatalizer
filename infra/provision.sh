@@ -74,7 +74,11 @@ sudo apt-get update -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   gpiod curl ca-certificates iptables iptables-persistent
 
-echo "--> Verifying libgpiod CLI is present..."
+echo "--> Verifying GPIO CLI tools are present..."
+# The driver needs BOTH tools: `gpioset` (libgpiod v2) holds a line high for ON,
+# and `pinctrl` drives a line low for OFF and for the boot safe-off. On this
+# hardware releasing a gpioset holder does NOT drive the line low (the pad retains
+# its last level), so pinctrl is required to de-energize — see docs/gpio-driver.md.
 if command -v gpioset >/dev/null 2>&1; then
   gpioset --version 2>/dev/null | head -n1 || true
   echo "    NOTE: the driver targets libgpiod v2 (bookworm and later). Confirm the"
@@ -82,6 +86,16 @@ if command -v gpioset >/dev/null 2>&1; then
   echo "    switch relays (see infra/README.md)."
 else
   echo "    error: gpioset not found after install" >&2
+  exit 1
+fi
+if command -v pinctrl >/dev/null 2>&1; then
+  echo "    pinctrl present ($(command -v pinctrl))."
+else
+  # pinctrl ships with Raspberry Pi OS (raspi-utils). If it is somehow absent the
+  # driver cannot turn circuits off, so fail loudly rather than deploy an unsafe
+  # controller.
+  echo "    error: pinctrl not found. It is required to de-energize relays." >&2
+  echo "    Install it (Raspberry Pi OS: 'sudo apt install raspi-utils') and retry." >&2
   exit 1
 fi
 

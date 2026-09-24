@@ -98,8 +98,18 @@ class FakeHistory implements RunRecorder {
     start: number;
     end: number | null;
   }): Promise<unknown> {
-    this.records.push(record);
+    this.records.push({ ...record });
     return record;
+  }
+  /** Close the newest still-open record, mirroring HistoryStore.closeOpenRun. */
+  async closeOpenRun(end: number): Promise<unknown> {
+    for (let i = this.records.length - 1; i >= 0; i--) {
+      if (this.records[i]!.end === null) {
+        this.records[i]!.end = end;
+        return this.records[i];
+      }
+    }
+    return undefined;
   }
 }
 
@@ -134,16 +144,47 @@ describe("Scheduler", () => {
     expect(heartbeat).toHaveBeenCalled();
   });
 
-  it("energizes the running circuit and records the run at its start", async () => {
+  it("records the run open (end: null) when it starts", async () => {
     clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
     const scheduler = build();
     await scheduler.start(config([twoStepProgram()]));
     expect(controller.calls).toEqual(["on:1"]);
+    // Opened with a null end — not the scheduled end — so the dashboard shows it
+    // as in-progress and never renders a future "turned off". The end is filled
+    // in when the run actually stops.
     expect(history.records).toEqual([
       {
         circuit: 1,
         start: localTime(DAY.year, DAY.month, DAY.day, 6),
-        end: localTime(DAY.year, DAY.month, DAY.day, 6, 10),
+        end: null,
+      },
+    ]);
+  });
+
+  it("closes the open record with the actual end when a run stops early", async () => {
+    // Start mid-run so circuit 1 is active with an open record.
+    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6, 5));
+    const scheduler = build();
+    await scheduler.start(config([twoStepProgram()]));
+    expect(history.records).toEqual([
+      {
+        circuit: 1,
+        start: localTime(DAY.year, DAY.month, DAY.day, 6),
+        end: null,
+      },
+    ]);
+
+    // Stop scheduling at 06:07: the active run's open record is closed with the
+    // actual stop time, not a scheduled end.
+    const stopAt = localTime(DAY.year, DAY.month, DAY.day, 6, 7);
+    clock.set(stopAt);
+    await scheduler.stop();
+
+    expect(history.records).toEqual([
+      {
+        circuit: 1,
+        start: localTime(DAY.year, DAY.month, DAY.day, 6),
+        end: stopAt,
       },
     ]);
   });

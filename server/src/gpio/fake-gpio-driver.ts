@@ -1,19 +1,11 @@
 import type { GpioDriver, PinLevel } from "./gpio-driver";
 
 /**
- * Optional fault injection for tests. Each hook, when set, overrides normal
- * behavior for the matching pin so tests can exercise the controller's failure
- * paths (write throws, read throws, or a pin reads back a level that disagrees
- * with what was written).
+ * Optional fault injection for tests. `failWriteOnPins` makes a write to the
+ * matching pin throw, so tests can exercise the controller's write-failure paths.
  */
 export interface FakeGpioFaults {
   failWriteOnPins?: ReadonlySet<number>;
-  failReadOnPins?: ReadonlySet<number>;
-  /**
-   * Pins whose read-back always reports "high" regardless of the last write,
-   * simulating a relay that fails to de-energize.
-   */
-  stuckHighPins?: ReadonlySet<number>;
 }
 
 /**
@@ -49,12 +41,6 @@ export class FakeGpioDriver implements GpioDriver {
   async read(pin: number): Promise<PinLevel> {
     this.ensureNotReleased();
     this.ensurePinKnown(pin);
-    if (this.faults.failReadOnPins?.has(pin)) {
-      throw new Error(`simulated read failure on pin ${pin}`);
-    }
-    if (this.faults.stuckHighPins?.has(pin)) {
-      return "high";
-    }
     return this.levels.get(pin) ?? "low";
   }
 

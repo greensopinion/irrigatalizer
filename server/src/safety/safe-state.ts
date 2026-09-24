@@ -5,11 +5,15 @@
  */
 export interface SafeStateTarget {
   /**
-   * Drive every circuit off. Must leave nothing energized.
+   * Drive every circuit off. Must leave nothing energized. On this hardware "off"
+   * is an explicit driven-low, not a line release (a released line retains its
+   * last level), so this actively drives each pin low.
    */
   safeOffAll(): Promise<void>;
   /**
-   * Release GPIO resources. Called once, last, on shutdown.
+   * Drive all pins low and release GPIO resources. Called once, last, on
+   * shutdown. Must not rely on release alone to de-energize — releasing a line
+   * leaves the pad at its last level on this stack.
    */
   release(): Promise<void>;
 }

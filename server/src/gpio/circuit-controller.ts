@@ -24,8 +24,14 @@ export class SafetyViolationError extends Error {
 /**
  * The single authority over relay state. Guarantees that at most one circuit is
  * energized at any instant: energizing a circuit first drives every other circuit
- * low and verifies the off-state by reading each pin back. If any pin cannot be
- * confirmed low, no circuit is energized and the hardware is driven safe-off.
+ * low. If any of those off-writes fails, no circuit is energized and the hardware
+ * is driven safe-off.
+ *
+ * The controller does NOT read pins back to verify the off-state. On the target
+ * hardware there is no reliable read-back (see `docs/gpio-driver-decision.md`):
+ * the driver's off (`pinctrl set … op dl`) drives the pad low synchronously, so
+ * the invariant rests on driving-others-low succeeding rather than on a read that
+ * cannot be trusted. `GpioDriver.read` remains available but advisory only.
  *
  * All relay changes go through this controller so the invariant holds regardless
  * of the caller (scheduler, manual run, API).
@@ -67,11 +73,11 @@ export class CircuitController {
     const targetPin = this.requirePin(circuit);
 
     try {
-      await this.driveOthersOffAndVerify(circuit);
+      await this.driveOthersOff(circuit);
     } catch (error) {
       await this.forceSafeOff();
       throw this.asSafetyViolation(
-        `refused to energize circuit ${circuit}: could not confirm all others off`,
+        `refused to energize circuit ${circuit}: could not drive all others off`,
         error,
       );
     }
@@ -102,15 +108,14 @@ export class CircuitController {
 
   /**
    * Drive every known circuit low. Attempts all pins even if some fail, so a
-   * single stuck pin cannot prevent the others from being de-energized. Throws if
-   * any pin could not be driven or verified low.
+   * single failing pin cannot prevent the others from being de-energized. Throws
+   * if any pin could not be driven low.
    */
   async safeOffAll(): Promise<void> {
     const failures: unknown[] = [];
     for (const [circuit, pin] of this.pinByCircuit) {
       try {
         await this.driver.write(pin, "low");
-        await this.verifyLow(pin);
       } catch (error) {
         failures.push(error);
       }
@@ -126,23 +131,15 @@ export class CircuitController {
     }
   }
 
-  private async driveOthersOffAndVerify(keep: number): Promise<void> {
+  private async driveOthersOff(keep: number): Promise<void> {
     for (const [circuit, pin] of this.pinByCircuit) {
       if (circuit === keep) {
         continue;
       }
       await this.driver.write(pin, "low");
-      await this.verifyLow(pin);
       if (this.active === circuit) {
         this.active = undefined;
       }
-    }
-  }
-
-  private async verifyLow(pin: number): Promise<void> {
-    const level = await this.driver.read(pin);
-    if (level !== "low") {
-      throw new Error(`pin ${pin} did not reach the low state`);
     }
   }
 

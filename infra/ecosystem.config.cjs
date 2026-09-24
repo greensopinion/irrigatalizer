@@ -46,6 +46,13 @@ const runtimeEnv = {
   // (which is replaced wholesale on each deploy). Data then lives at
   // <DATA_HOME>/.irrigatalizer.
   HOME: deployEnv.DATA_HOME || appDir,
+  // Always set GPIO_DRIVER explicitly (empty when unset) so `pm2 startOrRestart
+  // --update-env` overwrites any value from a previous deploy. Omitting the key
+  // instead leaves pm2's persisted env untouched, so an earlier GPIO_DRIVER=fake
+  // would survive a redeploy that meant to clear it — the process would keep
+  // running the fake driver despite an empty config value. The server treats an
+  // empty string the same as unset and selects the real gpiod driver.
+  GPIO_DRIVER: deployEnv.GPIO_DRIVER || "",
 };
 
 // Write logs to an explicit, service-user-owned directory (the data dir, which
@@ -54,10 +61,6 @@ const runtimeEnv = {
 // made a failed boot impossible to diagnose. deploy.sh ensures this dir exists
 // and is owned by the service user.
 const logDir = path.join(deployEnv.DATA_HOME || appDir, "logs");
-
-if (deployEnv.GPIO_DRIVER) {
-  runtimeEnv.GPIO_DRIVER = deployEnv.GPIO_DRIVER;
-}
 
 module.exports = {
   apps: [

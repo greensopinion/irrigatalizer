@@ -132,6 +132,11 @@ export async function bootstrap(options?: {
     timer: systemTimeoutTimer(),
     clock: () => Date.now(),
     history: historyStore,
+    // Feed the watchdog heartbeat while a manual run is active: it suspends the
+    // scheduler (the watchdog's usual heartbeat source), so without this the
+    // watchdog would trip a safe-off mid-run once the heartbeat went stale.
+    heartbeat: () => watchdog.heartbeat(),
+    heartbeatTimer: systemIntervalTimer(),
     onError: (error) => console.error("manual run failed:", error),
   });
 

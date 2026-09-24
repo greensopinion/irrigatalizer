@@ -1,4 +1,5 @@
 import type { RunRecorder, SchedulerController, TimeoutTimer } from "./scheduler";
+import type { IntervalTimer } from "../safety/watchdog";
 
 /**
  * The history operations a manual run needs: record the run when it starts (with a
@@ -40,8 +41,27 @@ export interface ManualRunOptions {
    * don't care about history can omit it.
    */
   history?: ManualRunHistory;
+  /**
+   * Feeds the watchdog heartbeat while a manual run is active. A manual run
+   * suspends the scheduler — the watchdog's usual heartbeat source — so without
+   * this the heartbeat goes stale and the watchdog trips a safe-off mid-run,
+   * cutting the run short (any run longer than the heartbeat timeout). The manual
+   * run is a live, legitimate energize, so it beats on the watchdog's behalf: once
+   * when it starts and periodically via `heartbeatTimer` until it finishes. The
+   * watchdog's max-runtime cap still guards a genuinely stuck circuit. Optional;
+   * both must be provided together to enable heart-beating.
+   */
+  heartbeat?: () => void;
+  heartbeatTimer?: IntervalTimer;
+  /**
+   * How often to beat the heartbeat while a run is active. Must be well under the
+   * watchdog's heartbeat timeout. Defaults to 30s.
+   */
+  heartbeatIntervalMs?: number;
   onError?: (error: unknown) => void;
 }
+
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 
 /**
  * Runs a single circuit on demand for a fixed duration, then turns it off. Manual
@@ -78,8 +98,10 @@ export class ManualRunController {
       await this.options.scheduler.suspend();
     } else {
       this.options.timer.cancel();
-      // Replacing a run already in progress: close its open history record before
-      // starting the new one, so we don't leave a dangling open run.
+      // Replacing a run already in progress: stop the old heartbeat interval (it
+      // is restarted below) and close its open history record so we don't leave a
+      // dangling open run.
+      this.stopHeartbeat();
       if (this.options.history) {
         await this.options.history.closeOpenRun(this.options.clock());
       }
@@ -89,6 +111,9 @@ export class ManualRunController {
     const startedAt = this.options.clock();
     const endsAt = startedAt + durationMinutes * 60_000;
     this.active = { circuit, endsAt };
+    // Keep the watchdog heartbeat alive for the duration: the scheduler (its usual
+    // source) is suspended, so the manual run beats on its behalf while active.
+    this.startHeartbeat();
     // Record the run as it starts with an open (null) end, so the dashboard shows
     // it immediately as "on" without a spurious "off". The end is filled in on
     // finish. Fire-and-forget: history must not block energizing the circuit.
@@ -115,11 +140,33 @@ export class ManualRunController {
     await this.finish();
   }
 
+  /**
+   * Beat the watchdog heartbeat now and start beating periodically until the run
+   * finishes. No-op when no heartbeat is wired (e.g. tests that don't need it).
+   */
+  private startHeartbeat(): void {
+    const { heartbeat, heartbeatTimer } = this.options;
+    if (!heartbeat) {
+      return;
+    }
+    heartbeat();
+    heartbeatTimer?.start(
+      this.options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS,
+      () => heartbeat(),
+    );
+  }
+
+  private stopHeartbeat(): void {
+    this.options.heartbeatTimer?.stop();
+  }
+
   private async finish(): Promise<void> {
     if (!this.active) {
       return;
     }
     this.active = undefined;
+    // Stop beating before the scheduler resumes and takes over heart-beating.
+    this.stopHeartbeat();
     try {
       await this.options.controller.safeOffAll();
       // Close the open record opened at start with the actual end time, so an
