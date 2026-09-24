@@ -7,14 +7,10 @@ import type {
   Weekday,
 } from "../api/types";
 import {
-  MAX_CIRCUITS,
   SLOTS_PER_DAY,
   WEEKDAYS,
   circuitName,
-  defaultPin,
-  nextCircuitNumber,
   slotLabel,
-  timezoneOptions,
   weekdayLabel,
 } from "../lib/format";
 
@@ -24,12 +20,12 @@ export interface ScheduleEditorProps {
 }
 
 /**
- * The schedule/program editor, built around named circuits and programs rather
- * than the old 7×48 grid. It edits a local draft of the whole configuration —
- * master enable, circuit names, and each program's days, start slot, and ordered
- * per-circuit durations — and saves it in one PUT (which safely restarts the
- * scheduler on the backend). The draft resets whenever a freshly loaded
- * configuration arrives.
+ * The schedule/program editor: the master enable and the programs (each with its
+ * days, start slot, and ordered per-circuit durations). Circuit setup and the
+ * timezone live on the Settings tab, since they are wired once rather than tuned
+ * regularly. Edits a local draft of the whole configuration and saves it in one
+ * PUT (which safely restarts the scheduler on the backend). The draft resets
+ * whenever a freshly loaded configuration arrives.
  */
 export function ScheduleEditor({ configuration, onSave }: ScheduleEditorProps) {
   const [draft, setDraft] = useState<Configuration>(configuration);
@@ -65,47 +61,6 @@ export function ScheduleEditor({ configuration, onSave }: ScheduleEditorProps) {
     }
   }
 
-  function updateCircuitName(number: number, name: string): void {
-    setDraft((prev) => ({
-      ...prev,
-      circuits: prev.circuits.map((circuit) =>
-        circuit.number === number ? { ...circuit, name } : circuit,
-      ),
-    }));
-  }
-
-  function addCircuit(): void {
-    setDraft((prev) => {
-      const number = nextCircuitNumber(prev.circuits);
-      if (number === undefined) {
-        return prev;
-      }
-      const circuit: Circuit = {
-        number,
-        name: `Circuit ${number}`,
-        pin: defaultPin(number),
-      };
-      // Keep circuits ordered by number so the list reads predictably.
-      const circuits = [...prev.circuits, circuit].sort(
-        (a, b) => a.number - b.number,
-      );
-      return { ...prev, circuits };
-    });
-  }
-
-  function removeCircuit(number: number): void {
-    setDraft((prev) => ({
-      ...prev,
-      circuits: prev.circuits.filter((circuit) => circuit.number !== number),
-      // Drop any program steps that referenced the removed circuit so the saved
-      // configuration stays consistent.
-      programs: prev.programs.map((program) => ({
-        ...program,
-        steps: program.steps.filter((step) => step.circuit !== number),
-      })),
-    }));
-  }
-
   function updateProgram(id: string, patch: Partial<Program>): void {
     setDraft((prev) => ({
       ...prev,
@@ -138,93 +93,28 @@ export function ScheduleEditor({ configuration, onSave }: ScheduleEditorProps) {
       <section className="editor-card">
         <div className="editor-header">
           <h2>Schedule</h2>
-          <label className="switch">
+          <label className="toggle">
             <input
               type="checkbox"
+              role="switch"
+              aria-label="Schedule enabled"
               checked={draft.enabled}
               onChange={(event) =>
                 setDraft((prev) => ({ ...prev, enabled: event.target.checked }))
               }
             />
-            <span>{draft.enabled ? "Enabled" : "Disabled"}</span>
+            <span className="toggle-track" aria-hidden="true">
+              <span className="toggle-thumb" />
+            </span>
+            <span className="toggle-label">
+              {draft.enabled ? "Enabled" : "Disabled"}
+            </span>
           </label>
         </div>
-        <label className="timezone-picker">
-          <span>Timezone</span>
-          <select
-            aria-label="Schedule timezone"
-            value={draft.timezone}
-            onChange={(event) =>
-              setDraft((prev) => ({ ...prev, timezone: event.target.value }))
-            }
-          >
-            {timezoneOptions(draft.timezone).map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </select>
-        </label>
         <p className="hint">
-          All schedule times are in this timezone, on the device running the
-          controller and in this app.
+          When disabled, no programs run. Set up circuits and the timezone on the
+          Settings tab.
         </p>
-      </section>
-
-      <section className="editor-card">
-        <div className="editor-header">
-          <h2>Circuits</h2>
-          <button
-            type="button"
-            onClick={addCircuit}
-            disabled={draft.circuits.length >= MAX_CIRCUITS}
-          >
-            Add circuit
-          </button>
-        </div>
-        <p className="hint">
-          Each circuit number maps to a fixed BCM GPIO pin (shown per circuit).
-        </p>
-        {draft.circuits.length === 0 ? (
-          <p className="empty">
-            No circuits yet. Add one to name it and use it in a program.
-          </p>
-        ) : (
-          <ul className="circuit-list">
-            {draft.circuits.map((circuit) => (
-              <li key={circuit.number}>
-                <label>
-                  <span className="circuit-number">#{circuit.number}</span>
-                  <input
-                    type="text"
-                    aria-label={`Name for circuit ${circuit.number}`}
-                    value={circuit.name}
-                    onChange={(event) =>
-                      updateCircuitName(circuit.number, event.target.value)
-                    }
-                  />
-                </label>
-                <span
-                  className="circuit-pin"
-                  title={`Circuit ${circuit.number} drives BCM GPIO pin ${circuit.pin}`}
-                >
-                  GPIO {circuit.pin}
-                </span>
-                <button
-                  type="button"
-                  className="danger"
-                  aria-label={`Remove circuit ${circuit.number}`}
-                  onClick={() => removeCircuit(circuit.number)}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {draft.circuits.length >= MAX_CIRCUITS ? (
-          <p className="empty">Maximum of {MAX_CIRCUITS} circuits reached.</p>
-        ) : null}
       </section>
 
       <section className="editor-card">

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { Configuration, History, Status } from "./api/types";
@@ -66,11 +67,22 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the section tabs", () => {
+  it("shows the section tabs plus a compact Settings icon", () => {
     render(<App />);
     expect(screen.getByRole("button", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Schedule" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Controls" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("opens the Settings tab, showing circuit setup and the timezone picker", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Name for circuit 1")).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText("Schedule timezone")).toBeInTheDocument();
   });
 
   it("renders live status from the polled endpoint", async () => {

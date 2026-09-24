@@ -73,6 +73,16 @@ body {
   color: #04283a;
 }
 
+/* The Settings tab is an icon, not a word — keep it square and compact so it
+   doesn't claim an equal slice of the bar next to the labelled tabs. */
+.tab-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+}
+
 .app-main {
   margin-top: 0.5rem;
 }
@@ -324,14 +334,67 @@ button.danger {
   margin-bottom: 0.75rem;
 }
 
-.switch {
-  display: flex;
+/* Toggle switch: a checkbox visually rendered as a sliding switch. The native
+   input stays present (visually hidden) so it remains keyboard- and
+   screen-reader-accessible; the track/thumb are decorative. */
+.toggle {
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
 }
 
-.switch input {
-  width: auto;
+.toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  transition: background 0.15s ease;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--accent-strong);
+}
+
+.toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(20px);
+  background: #04283a;
+}
+
+.toggle input:focus-visible + .toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle-label {
+  font-weight: 600;
 }
 
 .timezone-picker {

@@ -5,11 +5,17 @@ import type { Configuration, History } from "./api/types";
 import { useStatus } from "./hooks/useStatus";
 import { Dashboard } from "./components/Dashboard";
 import { ScheduleEditor } from "./components/ScheduleEditor";
+import { SettingsEditor } from "./components/SettingsEditor";
 import { ManualRunControls } from "./components/ManualRunControls";
 import { OverrideControls } from "./components/OverrideControls";
 
-type Tab = "dashboard" | "schedule" | "controls";
+type Tab = "dashboard" | "schedule" | "controls" | "settings";
 
+/**
+ * The word-labelled tabs for day-to-day use. Settings is intentionally excluded:
+ * it is a rarely-visited setup area rendered as a compact gear icon so the tab bar
+ * stays uncrowded on a phone.
+ */
 const TABS: { id: Tab; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "schedule", label: "Schedule" },
@@ -99,6 +105,16 @@ export function App() {
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          className={tab === "settings" ? "tab tab-icon active" : "tab tab-icon"}
+          aria-current={tab === "settings" ? "page" : undefined}
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setTab("settings")}
+        >
+          <GearIcon />
+        </button>
       </nav>
 
       <main className="app-main">
@@ -140,7 +156,39 @@ export function App() {
             />
           </div>
         ) : null}
+
+        {tab === "settings" ? (
+          configuration ? (
+            <SettingsEditor
+              configuration={configuration}
+              onSave={handleSaveConfiguration}
+            />
+          ) : (
+            <p className="empty">Loading configuration…</p>
+          )
+        ) : null}
       </main>
     </div>
+  );
+}
+
+/** A minimal gear glyph for the compact Settings tab. */
+function GearIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
   );
 }
