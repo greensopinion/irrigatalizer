@@ -229,6 +229,7 @@ h2 {
   right: 0;
   background: var(--surface-2);
   border-radius: 6px;
+  overflow: hidden;
 }
 
 .sparkline-bar {
