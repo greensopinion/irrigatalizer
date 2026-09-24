@@ -7,3 +7,4 @@ coverage/
 
 # Deployment config (per-operator host details / secrets)
 infra/config.env
+tmp/

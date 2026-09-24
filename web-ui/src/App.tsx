@@ -90,6 +90,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
+        <img className="app-logo" src="/favicon.svg" alt="Zippy" aria-hidden="true" />
         <h1>Irrigatalizer</h1>
       </header>
 
