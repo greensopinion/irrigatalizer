@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { ActiveManualRun, Circuit } from "../api/types";
 import { useNow } from "../hooks/useNow";
 import { circuitName, formatCountdown } from "../lib/format";
+import { NumberInput } from "./NumberInput";
 
 export interface ManualRunControlsProps {
   circuits: Circuit[];
@@ -94,14 +95,11 @@ export function ManualRunControls({
           </label>
           <label>
             <span>Minutes</span>
-            <input
-              type="number"
+            <NumberInput
               min={1}
-              aria-label="Manual run minutes"
+              ariaLabel="Manual run minutes"
               value={minutes}
-              onChange={(event) =>
-                setMinutes(Math.max(1, Number(event.target.value)))
-              }
+              onChange={setMinutes}
             />
           </label>
           <button

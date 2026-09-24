@@ -13,6 +13,7 @@ import {
   slotLabel,
   weekdayLabel,
 } from "../lib/format";
+import { NumberInput } from "./NumberInput";
 
 export interface ScheduleEditorProps {
   configuration: Configuration;
@@ -294,15 +295,12 @@ function ProgramCard({
                   ))}
                 </select>
                 <label className="duration">
-                  <input
-                    type="number"
+                  <NumberInput
                     min={1}
-                    aria-label={`Duration in minutes for step ${index + 1}`}
+                    ariaLabel={`Duration in minutes for step ${index + 1}`}
                     value={step.durationMinutes}
-                    onChange={(event) =>
-                      updateStep(index, {
-                        durationMinutes: Math.max(1, Number(event.target.value)),
-                      })
+                    onChange={(durationMinutes) =>
+                      updateStep(index, { durationMinutes })
                     }
                   />
                   <span>min</span>

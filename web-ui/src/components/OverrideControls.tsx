@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { Override } from "../api/types";
 import { formatDateTime } from "../lib/format";
+import { NumberInput } from "./NumberInput";
 
 export interface OverrideControlsProps {
   override: Override | null;
@@ -71,14 +72,11 @@ export function OverrideControls({
           <div className="rain-delay">
             <label>
               <span>Rain delay</span>
-              <input
-                type="number"
+              <NumberInput
                 min={1}
-                aria-label="Rain delay days"
+                ariaLabel="Rain delay days"
                 value={days}
-                onChange={(event) =>
-                  setDays(Math.max(1, Number(event.target.value)))
-                }
+                onChange={setDays}
               />
               <span>days</span>
             </label>
