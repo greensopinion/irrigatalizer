@@ -12,7 +12,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
 
-// Directory this config lives in on the Pi (APP_DIR).
 const appDir = __dirname;
 
 // Load deploy-time settings written by deploy.sh. Falls back to sensible

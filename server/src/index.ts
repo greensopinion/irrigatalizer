@@ -89,8 +89,11 @@ export async function bootstrap(options?: {
    */
   driver?: GpioDriver;
 }): Promise<{ app: Express; shutdown: () => Promise<void> }> {
-  const driver = options?.driver ?? resolveDriver();
-  const driverKind: DriverKind = driver instanceof FakeGpioDriver ? "fake" : "gpiod";
+  const resolved = options?.driver
+    ? { driver: options.driver, kind: driverKindOf(options.driver) }
+    : resolveDriver();
+  const { driver } = resolved;
+  const driverKind: DriverKind = resolved.kind;
   const controller = new CircuitController(driver, DEFAULT_CIRCUIT_PINS);
   const configStore = new ConfigStore(options?.dataDir);
   const historyStore = new HistoryStore(options?.dataDir);
@@ -180,12 +183,20 @@ export async function bootstrap(options?: {
  * server (and the SPA it serves) can run on a dev machine with no GPIO hardware.
  * The fake records pin state in memory and never shells out to `gpioset`/`gpioget`.
  */
-function resolveDriver(): GpioDriver {
+function resolveDriver(): { driver: GpioDriver; kind: DriverKind } {
   if (process.env.GPIO_DRIVER === "fake") {
     console.log("Using in-memory fake GPIO driver (GPIO_DRIVER=fake).");
-    return new FakeGpioDriver();
+    return { driver: new FakeGpioDriver(), kind: "fake" };
   }
-  return new GpiodCliDriver();
+  return { driver: new GpiodCliDriver(), kind: "gpiod" };
+}
+
+/**
+ * Classify an injected driver. Used only for the test/embed path where a driver
+ * is supplied directly; the env-driven path reports its kind explicitly.
+ */
+function driverKindOf(driver: GpioDriver): DriverKind {
+  return driver instanceof FakeGpioDriver ? "fake" : "gpiod";
 }
 
 /**
@@ -213,9 +224,27 @@ function resolvePort(): number {
   return Number.isFinite(parsed) ? parsed : DEFAULT_PORT;
 }
 
-const isMainModule = process.argv[1]
-  ? import.meta.url === new URL(`file://${process.argv[1]}`).href
-  : false;
+/**
+ * Whether this module is the process entry point and should start the server.
+ *
+ * A plain `node dist/index.js` launch is detected by matching this module's URL
+ * against `argv[1]`. Under pm2 fork mode that check fails: pm2 runs its own
+ * wrapper as `argv[1]` and launches the real script indirectly, so the process
+ * would load this module, skip startup, and sit idle forever (online but never
+ * listening). pm2 records the script it actually launched in `pm_exec_path`, so
+ * treat a match there as main too.
+ */
+function launchedAsEntry(): boolean {
+  const thisModulePath = fileURLToPath(import.meta.url);
+  const argvEntry = process.argv[1];
+  if (argvEntry && path.resolve(argvEntry) === thisModulePath) {
+    return true;
+  }
+  const pm2ExecPath = process.env.pm_exec_path;
+  return pm2ExecPath !== undefined && path.resolve(pm2ExecPath) === thisModulePath;
+}
+
+const isMainModule = launchedAsEntry();
 
 if (isMainModule) {
   const port = resolvePort();

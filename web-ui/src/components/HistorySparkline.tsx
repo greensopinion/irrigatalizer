@@ -35,12 +35,21 @@ export function HistorySparkline({
 
   // Rows are the configured circuits; fall back to any circuit numbers that
   // appear in history but are no longer configured so nothing is silently hidden.
+  // Ordered alphabetically by display name (with the circuit number as a stable
+  // tiebreaker) so the timeline reads like the rest of the name-first UI.
   const rows = useMemo(() => {
     const numbers = new Set(circuits.map((c) => c.number));
     for (const run of runs) {
       numbers.add(run.circuit);
     }
-    return [...numbers].sort((a, b) => a - b);
+    return [...numbers].sort((a, b) => {
+      const byName = circuitName(circuits, a).localeCompare(
+        circuitName(circuits, b),
+        undefined,
+        { sensitivity: "base", numeric: true },
+      );
+      return byName !== 0 ? byName : a - b;
+    });
   }, [circuits, runs]);
 
   const visibleRuns = useMemo(

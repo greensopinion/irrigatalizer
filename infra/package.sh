@@ -30,16 +30,12 @@ echo "==> Staging release layout..."
 rm -rf "${STAGE_DIR}"
 mkdir -p "${STAGE_DIR}/server/dist" "${STAGE_DIR}/web-ui/dist"
 
-# Compiled server bundle (+ sourcemap) and built SPA.
 cp -R server/dist/. "${STAGE_DIR}/server/dist/"
 cp -R web-ui/dist/. "${STAGE_DIR}/web-ui/dist/"
-
-# pm2 process definition.
 cp infra/ecosystem.config.cjs "${STAGE_DIR}/ecosystem.config.cjs"
 
-# Minimal runtime package.json: only the server's production dependencies, so
-# `npm install --omit=dev` on the Pi resolves express/luxon/zod and nothing else.
-# The versions are read from server/package.json to stay in sync.
+# Ship only the server's production dependencies (read from server/package.json
+# to stay in sync) so `npm install --omit=dev` on the Pi resolves nothing extra.
 echo "==> Generating runtime package.json..."
 STAGE_DIR="${STAGE_DIR}" node --input-type=module <<'NODE'
 import { readFileSync, writeFileSync } from "node:fs";
@@ -65,7 +61,7 @@ writeFileSync(
 );
 NODE
 
-# A short marker so the deployed artifact is identifiable on the Pi.
+# A marker the deploy health check and operators use to identify the artifact.
 BUILD_STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 GIT_REV="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 printf 'built=%s\ncommit=%s\n' "${BUILD_STAMP}" "${GIT_REV}" > "${STAGE_DIR}/RELEASE"

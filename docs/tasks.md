@@ -357,6 +357,35 @@ alongside `requirements.md`. Check tasks off as they complete.
     `exitCode`, so a failed boot dies visibly (leftover watchdog timers were
     keeping a failed process alive-but-not-listening). App verified serving under
     pm2 with the fake driver (`GPIO_DRIVER=fake`) on the Pi.
+  - Simulated-driver banner (done): `/api/status` now reports the active GPIO
+    driver (`driver: "fake" | "gpiod"`, derived in `bootstrap` from the same
+    env-driven branch that selects the driver, not by `instanceof`), and the
+    Dashboard shows a banner when it is `"fake"` so a UI running against the
+    in-memory driver is never mistaken for one switching real relays. Covered by
+    API and Dashboard tests.
+  - Shutdown-exit fix (done): the SIGINT/SIGTERM handlers ran safe-off + release
+    but never exited, so registering the handler overrode Node's default
+    termination and the still-alive HTTP server + watchdog interval kept the
+    process running — `^C` printed "safe-state shutdown" but did not stop it, and
+    pm2 stop/restart had to wait out `kill_timeout` then SIGKILL (a major source of
+    stale/half-running processes during bring-up). `registerSafeStateHandlers` now
+    exits after the safe-off sequence: code 0 for SIGINT/SIGTERM, code 1 for
+    uncaught-exception/unhandled-rejection; `beforeExit` still does not exit (the
+    runtime is already leaving). `exit` is injectable for tests. Covered by
+    safe-state tests asserting the exit code per trigger.
+  - History ordering (done): the dashboard history timeline now orders circuit rows
+    alphabetically by display name (numeric tiebreaker) to match the name-first UI.
+  - Deploy update aligned to pm2's recommendation (done): `deploy.sh` now uses
+    `pm2 startOrRestart ecosystem.config.cjs --update-env` (pm2's idempotent
+    start-or-refresh, passing the ecosystem file so updated `env:` values are
+    actually applied — CLI env is otherwise conservative) instead of a hand-rolled
+    describe/reload/start branch. This avoids the stale/duplicate process
+    definitions that caused the wrong (or no) `GPIO_DRIVER` env during bring-up.
+    Fork mode is single-owner, so `reload` gives no zero-downtime benefit over
+    `restart`; the brief restart is accepted. The health check now requires the
+    `driver` field in `/api/status` (present only in current builds) so a stale or
+    stray process squatting the port cannot pass as a successful deploy, and on
+    failure it reports what is listening on the port rather than auto-killing it.
   - Remaining: rewrite `README.md` for the new architecture (the current file still
     documents the legacy Node 12 / `index.js` / old pm2 flow below the "Related"
     heading) and confirm the deploy end-to-end on a Pi with real hardware.

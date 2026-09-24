@@ -32,6 +32,12 @@ export interface SafeStateOptions {
    * Optional log sink for observability. Never throws.
    */
   log?: (message: string) => void;
+  /**
+   * How the process is terminated after a signal- or crash-triggered safe-off.
+   * Injected so tests can observe the exit without killing the test runner.
+   * Defaults to `process.exit`.
+   */
+  exit?: (code: number) => void;
 }
 
 /**
@@ -55,9 +61,21 @@ export async function safeStateOnBoot(
 export function registerSafeStateHandlers(options: SafeStateOptions): void {
   const { target, process: proc } = options;
   const log = options.log ?? (() => {});
+  const exit = options.exit ?? ((code: number) => process.exit(code));
   let shuttingDown = false;
 
-  const shutdown = async (trigger: string): Promise<void> => {
+  /**
+   * Run safe-off + release once. When `exitCode` is provided, terminate the
+   * process afterward: registering a signal handler overrides Node's default
+   * termination, and long-lived work (the HTTP server, watchdog interval) keeps
+   * the event loop alive, so without an explicit exit a SIGINT/SIGTERM would
+   * leave the process running instead of stopping. `beforeExit` passes no code
+   * because the runtime is already exiting.
+   */
+  const shutdown = async (
+    trigger: string,
+    exitCode?: number,
+  ): Promise<void> => {
     if (shuttingDown) {
       return;
     }
@@ -73,21 +91,24 @@ export function registerSafeStateHandlers(options: SafeStateOptions): void {
     } catch (error) {
       log(`gpio release during shutdown failed: ${describe(error)}`);
     }
+    if (exitCode !== undefined) {
+      exit(exitCode);
+    }
   };
 
   proc.on("SIGINT", () => {
-    void shutdown("SIGINT");
+    void shutdown("SIGINT", 0);
   });
   proc.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
+    void shutdown("SIGTERM", 0);
   });
   proc.on("uncaughtException", (error) => {
     log(`uncaught exception: ${describe(error)}`);
-    void shutdown("uncaughtException");
+    void shutdown("uncaughtException", 1);
   });
   proc.on("unhandledRejection", (reason) => {
     log(`unhandled rejection: ${describe(reason)}`);
-    void shutdown("unhandledRejection");
+    void shutdown("unhandledRejection", 1);
   });
   proc.once("beforeExit", () => {
     void shutdown("beforeExit");

@@ -68,46 +68,78 @@ describe("safeStateOnBoot", () => {
 });
 
 describe("registerSafeStateHandlers", () => {
-  it("safe-offs then releases on SIGTERM", async () => {
+  it("safe-offs, releases, then exits 0 on SIGTERM", async () => {
     const target = new RecordingTarget();
     const proc = new FakeProcess();
-    registerSafeStateHandlers({ target, process: proc });
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
 
     await proc.emit("SIGTERM");
 
     expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).toHaveBeenCalledWith(0);
   });
 
-  it("safe-offs and releases on an uncaught exception", async () => {
+  it("exits 0 on SIGINT after the safe-off sequence", async () => {
     const target = new RecordingTarget();
     const proc = new FakeProcess();
-    registerSafeStateHandlers({ target, process: proc });
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
+
+    await proc.emit("SIGINT");
+
+    expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("safe-offs, releases, then exits 1 on an uncaught exception", async () => {
+    const target = new RecordingTarget();
+    const proc = new FakeProcess();
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
 
     await proc.emit("uncaughtException", new Error("boom"));
 
     expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).toHaveBeenCalledWith(1);
   });
 
-  it("safe-offs and releases on an unhandled rejection", async () => {
+  it("safe-offs, releases, then exits 1 on an unhandled rejection", async () => {
     const target = new RecordingTarget();
     const proc = new FakeProcess();
-    registerSafeStateHandlers({ target, process: proc });
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
 
     await proc.emit("unhandledRejection", "nope");
 
     expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("does not exit on beforeExit (the runtime is already leaving)", async () => {
+    const target = new RecordingTarget();
+    const proc = new FakeProcess();
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
+
+    await proc.emit("beforeExit");
+
+    expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).not.toHaveBeenCalled();
   });
 
   it("runs the shutdown sequence at most once across multiple events", async () => {
     const target = new RecordingTarget();
     const proc = new FakeProcess();
-    registerSafeStateHandlers({ target, process: proc });
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, exit });
 
     await proc.emit("SIGINT");
     await proc.emit("SIGTERM");
     await proc.emit("beforeExit");
 
     expect(target.calls).toEqual(["safeOffAll", "release"]);
+    expect(exit).toHaveBeenCalledTimes(1);
   });
 
   it("still releases GPIO when safe-off fails during shutdown", async () => {
@@ -115,7 +147,8 @@ describe("registerSafeStateHandlers", () => {
     target.safeOffError = new Error("stuck relay");
     const proc = new FakeProcess();
     const log = vi.fn();
-    registerSafeStateHandlers({ target, process: proc, log });
+    const exit = vi.fn();
+    registerSafeStateHandlers({ target, process: proc, log, exit });
 
     await proc.emit("SIGTERM");
 

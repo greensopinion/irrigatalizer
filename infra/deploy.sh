@@ -6,11 +6,12 @@
 #   1. Build the release tarball locally (package.sh).
 #   2. Copy it to the Pi over scp.
 #   3. Extract it into APP_DIR, run `npm install --omit=dev`, write the runtime
-#      env file, and start/reload the pm2 service, then persist the pm2 list.
+#      env file, start/restart the pm2 service, and health-check the new build.
 #
-# Assumes provision.sh has already run once. Re-running deploys a new build with
-# near-zero downtime (pm2 reload). This performs REMOTE operations over SSH; run
-# it only when you intend to update the Pi.
+# Assumes provision.sh has already run once. Re-running deploys a new build via
+# `pm2 startOrRestart` (fork mode has a brief restart, which is fine for a single
+# controller). This performs REMOTE operations over SSH; run it only when you
+# intend to update the Pi.
 #
 # Usage:
 #   ./infra/deploy.sh
@@ -45,17 +46,16 @@ if [ -n "${PI_SSH_KEY:-}" ]; then
   SCP_OPTS+=(-i "${PI_SSH_KEY}")
 fi
 
-# 1. Build.
 "${SCRIPT_DIR}/package.sh"
 
-# 2. Ship to a staging path in the login user's home, then move into place with
-#    sudo (APP_DIR is owned by the service user).
+# Ship to /tmp, then move into place with sudo: APP_DIR is owned by the service
+# user, not the login user doing the scp.
 REMOTE_TMP="/tmp/irrigatalizer-release.tar.gz"
 echo "==> Copying release to ${PI_USER}@${PI_HOST}:${REMOTE_TMP}"
 scp "${SCP_OPTS[@]}" "${TARBALL}" "${PI_USER}@${PI_HOST}:${REMOTE_TMP}"
 
-# 3. Remote install + restart. Config values are passed via an exported header so
-#    they are never interpolated into command bodies.
+# Config values are passed via an exported header prepended to the remote script
+# so they are never interpolated into command bodies.
 echo "==> Installing and (re)starting on the Pi..."
 REMOTE_HEADER="$(cat <<EOF
 export SERVICE_USER="${SERVICE_USER}"
@@ -116,37 +116,50 @@ as_service() {
 echo "--> Installing runtime dependencies (npm install --omit=dev)..."
 as_service "npm install --omit=dev --no-audit --no-fund"
 
-echo "--> Starting/reloading the pm2 service as ${SERVICE_USER}..."
-# reload if already running (near-zero downtime), otherwise start fresh.
-if as_service "pm2 describe irrigatalizer" >/dev/null 2>&1; then
-  as_service "pm2 reload '${APP_DIR}/ecosystem.config.cjs'"
-else
-  as_service "pm2 start '${APP_DIR}/ecosystem.config.cjs'"
-fi
+echo "--> Starting/restarting the pm2 service as ${SERVICE_USER}..."
+# pm2's recommended idempotent update: startOrRestart with the ecosystem file
+# starts the app if it is not running and restarts it (refreshing config) if it
+# is. Passing the ecosystem file (not the app name) plus --update-env is what
+# makes pm2 pick up updated `env:` values — CLI env is otherwise conservative and
+# would keep stale values. We use fork mode (single owner of the GPIO), where
+# `reload` has no zero-downtime advantage over `restart`, so the brief restart is
+# expected and acceptable for a single-instance controller.
+as_service "pm2 startOrRestart '${APP_DIR}/ecosystem.config.cjs' --update-env"
 
 echo "--> Saving the pm2 process list so it resurrects on boot..."
 as_service "pm2 save"
 
-echo "--> Health check: waiting for the app to answer on port ${APP_PORT}..."
+echo "--> Health check: waiting for the new build to answer on port ${APP_PORT}..."
 # pm2 reporting "online" only means the process is alive, not that the HTTP
 # server bound the port (a failed boot can linger as live-but-not-listening).
-# Poll the status endpoint and fail the deploy loudly if it never responds, so a
-# broken deploy is obvious instead of silently leaving a dead service.
+# Require the `driver` field in the response: it exists only in current builds,
+# so a stale or stray process answering on the port cannot pass this check and
+# masquerade as a successful deploy.
 healthy=0
 for attempt in $(seq 1 15); do
-  if curl -fsS -o /dev/null "http://localhost:${APP_PORT}/api/status"; then
+  body="$(curl -fsS "http://localhost:${APP_PORT}/api/status" 2>/dev/null || true)"
+  if printf '%s' "${body}" | grep -q '"driver"'; then
     healthy=1
-    echo "    OK: /api/status responded (attempt ${attempt})."
+    echo "    OK: /api/status responded with a current build (attempt ${attempt})."
     break
   fi
   sleep 1
 done
 
 if [ "${healthy}" != "1" ]; then
-  echo "    ERROR: app did not answer on port ${APP_PORT} after 15s." >&2
+  echo "    ERROR: the current build did not answer on port ${APP_PORT} after 15s." >&2
   echo "    Recent logs:" >&2
   as_service "pm2 logs irrigatalizer --lines 40 --nostream" >&2 || true
   as_service "pm2 status irrigatalizer" >&2 || true
+  # Distinguish a crash from a port already held by a non-pm2 process: if
+  # something owns the port but pm2's app is not the listener, a stray process is
+  # squatting it (e.g. a hand-started `node`). Report it rather than auto-killing,
+  # since killing arbitrary processes is a decision for a human.
+  echo "    Listeners on port ${APP_PORT}:" >&2
+  if command -v ss >/dev/null 2>&1; then
+    sudo ss -ltnp "sport = :${APP_PORT}" >&2 || true
+  fi
+  echo "    If a non-pm2 process is holding ${APP_PORT}, stop it and redeploy." >&2
   exit 1
 fi
 

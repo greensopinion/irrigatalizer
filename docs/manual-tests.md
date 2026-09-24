@@ -17,6 +17,10 @@ grouped by functional area. Run them by hand before committing.
    proxies `/api` to the backend, so open `http://localhost:5173` (or the
    forwarded port from another machine).
 
+   When running with the fake driver, the Dashboard shows a purple "Simulated GPIO
+   driver — no relays are being switched" banner. Its absence means the app is on
+   the real driver.
+
 2. Open the app in a mobile viewport first (phone-first is the primary target):
    in the browser dev tools, switch to a phone device profile (e.g. iPhone or
    Pixel width ~390px). Repeat the key flows once on a desktop width too.
