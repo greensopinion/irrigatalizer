@@ -79,18 +79,44 @@ export function slotLabel(slot: number): string {
 }
 
 /**
- * Format a millisecond countdown as a compact clock, e.g. 1h 05m 09s or 4m 30s.
- * Negative values clamp to zero.
+ * Format a millisecond countdown as a compact clock. Long spans break out days
+ * from hours (e.g. "4d 8h 55m"); once the span reaches an hour the seconds are
+ * dropped as noise, so an hours-scale value reads "1h 5m" and a sub-hour value
+ * keeps seconds as "4m 30s". Only the seconds are zero-padded. Negative values
+ * clamp to zero.
  */
 export function formatCountdown(remainingMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m ${pad(seconds)}s`;
+}
+
+/**
+ * Format a run's elapsed time as a compact, whole-unit label, e.g. "15m", "1h 5m",
+ * or "45s" for sub-minute runs. Negative spans clamp to zero. Used for completed
+ * activity-log entries where a rough "how long it ran" reads better than a clock.
+ */
+export function formatRunDuration(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   if (hours > 0) {
-    return `${hours}h ${pad(minutes)}m ${pad(seconds)}s`;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   }
-  return `${minutes}m ${pad(seconds)}s`;
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${seconds}s`;
 }
 
 /**

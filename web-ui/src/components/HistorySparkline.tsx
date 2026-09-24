@@ -108,7 +108,7 @@ export function HistorySparkline({
           );
         })}
       </div>
-      <div className="sparkline-axis">
+      <div className="sparkline-axis" style={{ marginLeft: LABEL_WIDTH }}>
         <span>{windowHours}h ago</span>
         <span>now</span>
       </div>
