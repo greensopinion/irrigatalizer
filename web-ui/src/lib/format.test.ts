@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCountdown, formatRunDuration } from "./format";
+import { formatCountdown, formatRunDuration, slotLabel } from "./format";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -49,5 +49,19 @@ describe("formatRunDuration", () => {
 
   it("clamps negative spans to zero", () => {
     expect(formatRunDuration(-1000)).toBe("0s");
+  });
+});
+
+describe("slotLabel", () => {
+  it("formats midnight as a 12-hour AM label", () => {
+    expect(slotLabel(0)).toBe("12:00 AM");
+  });
+
+  it("formats a morning half-hour slot with AM/PM", () => {
+    expect(slotLabel(13)).toBe("6:30 AM");
+  });
+
+  it("formats an afternoon slot with AM/PM", () => {
+    expect(slotLabel(26)).toBe("1:00 PM");
   });
 });

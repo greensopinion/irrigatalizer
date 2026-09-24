@@ -69,13 +69,18 @@ export function weekdayLabel(day: Weekday): string {
 }
 
 /**
- * Format a 30-minute slot index (0..47) as a 24-hour HH:MM label.
+ * Format a 30-minute slot index (0..47) as a time-of-day label, e.g. "6:30 AM".
+ * Uses the same AM/PM style as {@link formatTimeOfDay} so the schedule picker
+ * matches the times shown elsewhere in the UI. A slot is a wall-clock offset
+ * within a day, so no date or zone is involved.
  */
 export function slotLabel(slot: number): string {
   const totalMinutes = slot * 30;
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return `${pad(hours)}:${pad(minutes)}`;
+  return DateTime.fromObject({ hour: hours, minute: minutes }).toLocaleString(
+    DateTime.TIME_SIMPLE,
+  );
 }
 
 /**
