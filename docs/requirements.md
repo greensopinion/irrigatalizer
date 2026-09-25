@@ -89,6 +89,22 @@ backend, independent of the UI.
   fails, leave **nothing** on.
 - **[preserve]** **Never simultaneous execution:** even when a schedule/program
   enables multiple circuits, they run strictly **sequentially**, one at a time.
+- **[new]** **Valve-settle gap between consecutive scheduled circuits:** when one
+  scheduled circuit's run ends and the next begins back-to-back, insert a brief
+  all-off pause (a fixed 2 seconds) before energizing the next circuit. This lets
+  the closing valve's hydraulic transient (water hammer) damp out before the next
+  opens, and gives the single-active "drive all others off" step room so an
+  energize never races a de-energize on a shared supply. The gap is **taken from
+  the start of the following run** — the run still ends at its planned slot
+  boundary — so gaps **never accumulate** down a program and history records the
+  clean planned start/end. The gap is a fixed constant (not user-configurable): it
+  is a property of the plumbing, small enough that no run loses a meaningful amount
+  of water. It applies to **scheduled sequencing only**; **manual runs are
+  deliberately excluded** (they are operator-initiated and infrequent, so the
+  water-hammer-prone automated back-to-back case does not apply). Realized in the
+  pure timeline as a per-run `actualStart` (when the scheduler energizes) distinct
+  from the planned `start` (what history and the UI show), so no blocking wait sits
+  inside the `CircuitController`.
 - **[new]** **Watchdog / max-runtime cap:** every circuit has a hard maximum on-time.
   If the scheduler stalls, hangs, or crashes, an independent watchdog forces all
   relays off once a circuit exceeds its cap or the scheduler stops heart-beating.

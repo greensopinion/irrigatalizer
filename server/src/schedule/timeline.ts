@@ -6,14 +6,37 @@ const MINUTES_PER_SLOT = 30;
 const MS_PER_MINUTE = 60_000;
 
 /**
+ * The valve-settle gap: a brief all-off pause before a circuit that runs
+ * back-to-back after another, so a closing valve's hydraulic transient can damp out
+ * before the next opens. Fixed rather than configured — it is a property of the
+ * plumbing, and small enough that no run loses a meaningful amount of water.
+ * {@link serialize} applies it.
+ */
+export const SETTLE_MS = 2_000;
+
+/**
  * A concrete, absolute-time run of a single circuit: the circuit number, the epoch
  * milliseconds it starts and ends, and the program it came from. Runs in a
  * timeline never overlap.
  */
 export interface ScheduledRun {
   circuit: number;
+  /**
+   * The planned (slot-derived) start: the intended wall-clock start on the schedule
+   * grid. History and the UI use this; consecutive runs chain off `end`.
+   */
   start: number;
+  /**
+   * The planned end (`start + duration`). Anchored to the planned start regardless
+   * of any settle gap, so it doubles as the chaining boundary for the next run.
+   */
   end: number;
+  /**
+   * When the scheduler actually energizes the circuit: `start`, or `start` plus the
+   * settle gap when this run abuts a previous one (see {@link serialize}). The
+   * scheduler and the live countdown time off this; history uses `start`.
+   */
+  actualStart: number;
   programId: string;
 }
 
@@ -57,6 +80,9 @@ function expandProgramOnDay(
       circuit: step.circuit,
       start: cursor,
       end: cursor + durationMs,
+      // Provisional: no settle gap yet. serialize() sets the real actualStart once
+      // it knows whether this run abuts the previous one.
+      actualStart: cursor,
       programId: program.id,
     });
     cursor += durationMs;
@@ -67,7 +93,14 @@ function expandProgramOnDay(
 /**
  * Serialize candidate runs so none overlap: sort by intended start (stable across
  * equal starts), then push any run that would begin before the previous ends to
- * start exactly when the previous ends, preserving each run's full duration.
+ * start exactly when the previous ends, preserving each run's full planned
+ * duration.
+ *
+ * The {@link SETTLE_MS} gap moves only `actualStart`, never the planned
+ * `start`/`end`. Taking it from the front of the following run (rather than
+ * shifting the run later) keeps every run on its planned boundary, so gaps do not
+ * accumulate down a program. Clamping to `end` keeps an energize from outlasting
+ * its own run.
  */
 function serialize(candidates: ScheduledRun[]): ScheduledRun[] {
   const sorted = [...candidates].sort((a, b) => a.start - b.start);
@@ -76,14 +109,19 @@ function serialize(candidates: ScheduledRun[]): ScheduledRun[] {
   for (const run of sorted) {
     const start = Math.max(run.start, previousEnd);
     const duration = run.end - run.start;
-    const placed: ScheduledRun = {
+    const end = start + duration;
+    // A run starting strictly after the previous end is already separated in time,
+    // so it needs no gap; only a run butting up against the previous one does.
+    const abutsPrevious = start === previousEnd && previousEnd !== -Infinity;
+    const actualStart = abutsPrevious ? Math.min(start + SETTLE_MS, end) : start;
+    result.push({
       circuit: run.circuit,
       start,
-      end: start + duration,
+      end,
+      actualStart,
       programId: run.programId,
-    };
-    result.push(placed);
-    previousEnd = placed.end;
+    });
+    previousEnd = end;
   }
   return result;
 }
@@ -138,9 +176,11 @@ export function buildTimeline(
 }
 
 /**
- * Resolve the current and next run at `referenceMs` from a prebuilt timeline. A run
- * is current when `start <= referenceMs < end`; the next run is the earliest run
- * that starts at or after `referenceMs`.
+ * Resolve the current and next run at `referenceMs` from a prebuilt timeline.
+ *
+ * Keys on `actualStart`, not the planned `start`, so "current" and "next" follow
+ * when the circuit is really energized: during a settle gap no run is current,
+ * matching the hardware, and the live countdown lands on the real valve transition.
  */
 export function currentAndNext(
   timeline: readonly ScheduledRun[],
@@ -149,11 +189,14 @@ export function currentAndNext(
   let current: ScheduledRun | undefined;
   let next: ScheduledRun | undefined;
   for (const run of timeline) {
-    if (run.start <= referenceMs && referenceMs < run.end) {
+    if (run.actualStart <= referenceMs && referenceMs < run.end) {
       current = run;
       continue;
     }
-    if (run.start >= referenceMs && (!next || run.start < next.start)) {
+    if (
+      run.actualStart >= referenceMs &&
+      (!next || run.actualStart < next.actualStart)
+    ) {
       next = run;
     }
   }

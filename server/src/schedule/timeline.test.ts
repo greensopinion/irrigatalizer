@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, currentAndNext } from "./timeline";
+import { SETTLE_MS, buildTimeline, currentAndNext } from "./timeline";
 import type { Configuration, Program } from "../persistence/schema";
 
 /**
@@ -101,6 +101,61 @@ describe("buildTimeline", () => {
       circuit: 3,
       start: sixAm + 25 * 60_000,
     });
+  });
+
+  it("delays actualStart by the settle gap for back-to-back runs without shifting planned times", () => {
+    const timeline = buildTimeline(
+      config([
+        program({
+          steps: [
+            { circuit: 1, durationMinutes: 10 },
+            { circuit: 2, durationMinutes: 10 },
+            { circuit: 3, durationMinutes: 10 },
+          ],
+        }),
+      ]),
+      localTime(MONDAY.year, MONDAY.month, MONDAY.day, 0),
+    );
+
+    const sixAm = localTime(MONDAY.year, MONDAY.month, MONDAY.day, 6);
+
+    // Planned starts/ends stay on the exact slot grid — no drift.
+    expect(timeline[0]).toMatchObject({ circuit: 1, start: sixAm });
+    expect(timeline[0]?.end).toBe(sixAm + 10 * 60_000);
+    expect(timeline[1]?.start).toBe(sixAm + 10 * 60_000);
+    expect(timeline[1]?.end).toBe(sixAm + 20 * 60_000);
+    expect(timeline[2]?.start).toBe(sixAm + 20 * 60_000);
+    expect(timeline[2]?.end).toBe(sixAm + 30 * 60_000);
+
+    // The first run of the session has nothing before it, so no gap.
+    expect(timeline[0]?.actualStart).toBe(sixAm);
+    // Each subsequent back-to-back run energizes SETTLE_MS after its planned start.
+    // Critically the gap is a fixed SETTLE_MS per run, not accumulating (2s/4s/6s):
+    // it is measured from each run's own planned start, which never drifts.
+    expect(timeline[1]?.actualStart).toBe(sixAm + 10 * 60_000 + SETTLE_MS);
+    expect(timeline[2]?.actualStart).toBe(sixAm + 20 * 60_000 + SETTLE_MS);
+  });
+
+  it("does not apply a settle gap to runs that are naturally separated", () => {
+    // Two programs hours apart: the second does not abut the first, so no gap.
+    const timeline = buildTimeline(
+      config([
+        program({
+          id: "a",
+          startSlot: 12, // 06:00
+          steps: [{ circuit: 1, durationMinutes: 10 }],
+        }),
+        program({
+          id: "b",
+          startSlot: 24, // 12:00, well after program a ends
+          steps: [{ circuit: 2, durationMinutes: 10 }],
+        }),
+      ]),
+      localTime(MONDAY.year, MONDAY.month, MONDAY.day, 0),
+    );
+    const noon = localTime(MONDAY.year, MONDAY.month, MONDAY.day, 12);
+    const runB = timeline.find((r) => r.circuit === 2 && r.start === noon);
+    expect(runB?.actualStart).toBe(noon);
   });
 
   it("serializes overlapping programs so runs do not overlap", () => {
@@ -216,12 +271,40 @@ describe("currentAndNext", () => {
     expect(result.next?.circuit).toBe(2);
   });
 
-  it("reports the second circuit as current right at the boundary", () => {
+  it("reports the second circuit as current once its settle gap has elapsed", () => {
+    // At the planned boundary (06:10) the settle gap is still open; circuit 2 is
+    // current only after the gap, when it actually energizes.
     const result = currentAndNext(
       timeline,
-      localTime(MONDAY.year, MONDAY.month, MONDAY.day, 6, 10),
+      localTime(MONDAY.year, MONDAY.month, MONDAY.day, 6, 10) + SETTLE_MS,
     );
     expect(result.current?.circuit).toBe(2);
+  });
+
+  it("reports no current circuit during a settle gap between runs", () => {
+    const gapped = buildTimeline(
+      config([
+        program({
+          startSlot: 12, // 06:00
+          steps: [
+            { circuit: 1, durationMinutes: 10 },
+            { circuit: 2, durationMinutes: 10 },
+          ],
+        }),
+      ]),
+      localTime(MONDAY.year, MONDAY.month, MONDAY.day, 0),
+    );
+
+    // Exactly at 06:10, circuit 1's planned end: the settle gap has begun and
+    // circuit 2 has not yet energized, so nothing is current and circuit 2 is next.
+    const boundary = localTime(MONDAY.year, MONDAY.month, MONDAY.day, 6, 10);
+    const inGap = currentAndNext(gapped, boundary);
+    expect(inGap.current).toBeUndefined();
+    expect(inGap.next?.circuit).toBe(2);
+
+    // Once the settle gap elapses, circuit 2 is current.
+    const afterGap = currentAndNext(gapped, boundary + SETTLE_MS);
+    expect(afterGap.current?.circuit).toBe(2);
   });
 
   it("after today's run ends, reports next week's occurrence as next", () => {
@@ -279,12 +362,23 @@ describe("no-overlap property", () => {
         localTime(MONDAY.year, MONDAY.month, MONDAY.day, 0),
       );
 
-      for (let i = 1; i < timeline.length; i++) {
-        const previous = timeline[i - 1];
+      for (let i = 0; i < timeline.length; i++) {
         const run = timeline[i];
-        if (!previous || !run) {
+        if (!run) {
           continue;
         }
+        // The settle gap is taken from the front of the run and never inverts it.
+        expect(run.actualStart).toBeGreaterThanOrEqual(run.start);
+        expect(run.actualStart).toBeLessThanOrEqual(run.end);
+        if (i === 0) {
+          continue;
+        }
+        const previous = timeline[i - 1];
+        if (!previous) {
+          continue;
+        }
+        // Planned runs never overlap regardless of the gap (the gap does not touch
+        // planned start/end), so no accumulated drift.
         expect(run.start).toBeGreaterThanOrEqual(previous.end);
       }
     }

@@ -184,6 +184,9 @@ export class Scheduler {
         // Record with an open end; it is closed with the real end when the run
         // stops. Writing the scheduled end up front would render a "turned off"
         // dated in the future and never record the actual end.
+        //
+        // Record the planned `start`, not `actualStart`: history stays on the clean
+        // schedule grid rather than showing the settle gap.
         await this.options.history.append({
           circuit: current.circuit,
           start: current.start,
@@ -210,7 +213,9 @@ export class Scheduler {
       return;
     }
     const maxSleep = this.options.maxSleepMs ?? DEFAULT_MAX_SLEEP_MS;
-    const nextBoundary = current?.end ?? next?.start;
+    // Wake on the next run's `actualStart`, not its planned start, so the scheduler
+    // stays idle through the settle window and energizes when the gap elapses.
+    const nextBoundary = current?.end ?? next?.actualStart;
     const untilBoundary =
       nextBoundary !== undefined ? nextBoundary - now : maxSleep;
     const delay = Math.max(0, Math.min(maxSleep, untilBoundary));

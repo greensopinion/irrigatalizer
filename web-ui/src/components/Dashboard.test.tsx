@@ -42,6 +42,7 @@ describe("Dashboard", () => {
         circuit: 1,
         start: NOW - 60_000,
         end: NOW + 5 * 60_000,
+        actualStart: NOW - 60_000,
         programId: "p1",
       },
     });
@@ -88,6 +89,7 @@ describe("Dashboard", () => {
         circuit: 2,
         start: NOW + 30 * 60_000,
         end: NOW + 40 * 60_000,
+        actualStart: NOW + 30 * 60_000,
         programId: "p1",
       },
     });
@@ -185,6 +187,7 @@ describe("Dashboard", () => {
         circuit: 1,
         start: startUtc,
         end: startUtc + 10 * 60_000,
+        actualStart: startUtc,
         programId: "p1",
       },
     });

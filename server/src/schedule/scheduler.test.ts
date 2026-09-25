@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Scheduler } from "./scheduler";
+import { SETTLE_MS } from "./timeline";
 import type {
   RunRecorder,
   SchedulerController,
@@ -190,15 +191,52 @@ describe("Scheduler", () => {
   });
 
   it("switches to the next circuit one at a time at the transition", async () => {
+    const sixTen = localTime(DAY.year, DAY.month, DAY.day, 6, 10);
     clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
     const scheduler = build();
     await scheduler.start(config([twoStepProgram()]));
 
-    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6, 10));
+    // Circuit 1 ends at 06:10; the settle gap holds everything off, then circuit 2
+    // energizes once the gap elapses — still strictly one at a time.
+    clock.set(sixTen);
+    await timer.tick();
+    clock.set(sixTen + SETTLE_MS);
     await timer.tick();
 
-    expect(controller.calls).toEqual(["on:1", "on:2"]);
+    expect(controller.calls).toEqual(["on:1", "off", "on:2"]);
     expect(history.records.map((r) => r.circuit)).toEqual([1, 2]);
+  });
+
+  it("holds all circuits off through a settle gap, then energizes the next circuit", async () => {
+    const sixTen = localTime(DAY.year, DAY.month, DAY.day, 6, 10);
+
+    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
+    const scheduler = build();
+    await scheduler.start(config([twoStepProgram()]));
+    expect(controller.calls).toEqual(["on:1"]);
+
+    // At circuit 1's planned end the settle gap begins: nothing is energized.
+    clock.set(sixTen);
+    await timer.tick();
+    expect(controller.calls).toEqual(["on:1", "off"]);
+    // Circuit 1's record is closed at its planned end.
+    expect(history.records[0]).toEqual({
+      circuit: 1,
+      start: localTime(DAY.year, DAY.month, DAY.day, 6),
+      end: sixTen,
+    });
+
+    // Once the settle gap elapses, circuit 2 energizes.
+    clock.set(sixTen + SETTLE_MS);
+    await timer.tick();
+    expect(controller.calls).toEqual(["on:1", "off", "on:2"]);
+    // Circuit 2's history uses its PLANNED start (06:10), not the actual energize
+    // instant (06:10:02) — history stays on the clean schedule grid.
+    expect(history.records[1]).toEqual({
+      circuit: 2,
+      start: sixTen,
+      end: null,
+    });
   });
 
   it("turns everything off when the schedule finishes", async () => {
