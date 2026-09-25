@@ -31,6 +31,17 @@ export default tseslint.config(
     },
   },
   {
+    // Node build scripts (icon generation) run under Node, not the bundler.
+    files: ["web-ui/scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        Buffer: "readonly",
+        console: "readonly",
+        process: "readonly",
+      },
+    },
+  },
+  {
     files: ["web-ui/**/*.{ts,tsx}"],
     plugins: {
       "react-hooks": reactHooks,

@@ -1,4 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="738" height="898" viewBox="0 0 738 898" role="img" aria-label="Irrigatalizer logo">
+  <style>
+    @media (prefers-color-scheme: dark) {
+      /* Nudge the droplet lighter so it stays legible on a dark tab bar. */
+      :root { filter: brightness(1.12) saturate(1.05); }
+    }
+  </style>
   <defs>
     <radialGradient id="dropGrad" cx="49%" cy="7%" r="95%" fx="49%" fy="7%">
       <stop offset="0%" stop-color="#60c7f8"/>
