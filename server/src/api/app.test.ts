@@ -107,12 +107,17 @@ describe("API", () => {
   beforeEach(async () => {
     dataDir = await mkdtemp(join(tmpdir(), "irrigatalizer-api-"));
     driver = new FakeGpioDriver();
-    controller = new CircuitController(driver, CIRCUIT_PINS);
+    now = 1_000_000;
+    controller = new CircuitController(
+      driver,
+      CIRCUIT_PINS,
+      new ControllableTimer(),
+      () => now,
+    );
     await controller.initialize();
 
     const configStore = new ConfigStore(dataDir);
     const historyStore = new HistoryStore(dataDir);
-    now = 1_000_000;
 
     scheduler = new Scheduler({
       controller,

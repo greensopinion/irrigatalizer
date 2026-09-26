@@ -94,7 +94,6 @@ export async function bootstrap(options?: {
     : resolveDriver();
   const { driver } = resolved;
   const driverKind: DriverKind = resolved.kind;
-  const controller = new CircuitController(driver, DEFAULT_CIRCUIT_PINS);
   const configStore = new ConfigStore(options?.dataDir);
   const historyStore = new HistoryStore(options?.dataDir);
 
@@ -108,6 +107,22 @@ export async function bootstrap(options?: {
     },
     onError: (error) => console.error("watchdog safe-off failed:", error),
   });
+
+  // The controller drives the overlap release off the original call stack (via
+  // its own timer), so it reports the outcome through hooks: a clean resolution
+  // disarms the watchdog's overlap-stuck backstop, and a failed release is logged
+  // (the two-on state is then left for that same backstop to safe-off).
+  const controller = new CircuitController(
+    driver,
+    DEFAULT_CIRCUIT_PINS,
+    systemTimeoutTimer(),
+    () => performance.now(),
+    {
+      onOverlapResolved: () => watchdog.overlapEnded(),
+      onReleaseError: (error) =>
+        console.error("overlap release failed:", error),
+    },
+  );
 
   // Route every energize/clear through the watchdog so the max-runtime cap is
   // armed, without the scheduler or manual run depending on the watchdog.

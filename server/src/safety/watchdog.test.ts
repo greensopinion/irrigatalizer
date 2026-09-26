@@ -156,6 +156,77 @@ describe("Watchdog", () => {
     expect(timer.isRunning).toBe(false);
   });
 
+  describe("overlap-stuck", () => {
+    // overlapStarted(maxOverlapMs) arms a deadline of now + maxOverlapMs + an
+    // internal backstop margin. These tests treat that margin as an
+    // implementation detail and pick clock advances that land clearly before or
+    // after it: with a 2000 ms overlap the margin puts the deadline somewhere
+    // past 2000 ms, so 3001 ms is safely past and 2500 ms is safely before.
+
+    it("trips when an overlap persists past the window plus margin", () => {
+      const watchdog = build();
+      watchdog.start();
+      watchdog.overlapStarted(2000);
+
+      // Keep the heartbeat fresh so this isolates the overlap-stuck condition.
+      clock.advance(3001);
+      watchdog.heartbeat();
+      timer.tick();
+
+      expect(trips).toHaveLength(1);
+      expect(trips[0]?.kind).toBe("overlap-stuck");
+    });
+
+    it("does not trip while still within the overlap window", () => {
+      const watchdog = build();
+      watchdog.start();
+      watchdog.overlapStarted(2000);
+
+      // Before the deadline: a normal in-progress hand-off must not trip.
+      clock.advance(2500);
+      watchdog.heartbeat();
+      timer.tick();
+
+      expect(trips).toEqual([]);
+    });
+
+    it("does not trip for an overlap that resolves within the window", () => {
+      const watchdog = build();
+      watchdog.start();
+      watchdog.overlapStarted(2000);
+
+      // Hand-off completes early: circuitCleared disarms the overlap deadline.
+      clock.advance(1500);
+      watchdog.circuitCleared();
+
+      // Advancing well past the old deadline must not resurrect the trip.
+      clock.advance(10000);
+      watchdog.heartbeat();
+      timer.tick();
+
+      expect(trips).toEqual([]);
+    });
+
+    it("does not interfere with a normal within-cap circuit", () => {
+      const watchdog = build();
+      watchdog.start();
+      watchdog.circuitEnergized(1, 60000);
+      watchdog.overlapStarted(2000);
+
+      // Overlap resolves within its window while the incoming circuit keeps
+      // running well under its cap: no spurious trip.
+      clock.advance(1500);
+      watchdog.circuitCleared();
+      watchdog.circuitEnergized(1, 60000);
+
+      clock.advance(4000);
+      watchdog.heartbeat();
+      timer.tick();
+
+      expect(trips).toEqual([]);
+    });
+  });
+
   it("reports errors thrown by the trip handler", () => {
     const onError = vi.fn();
     const watchdog = new Watchdog({

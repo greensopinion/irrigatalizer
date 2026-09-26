@@ -9,6 +9,12 @@ import { effectiveTimeline } from "./overrides";
  */
 export interface SchedulerController {
   turnOn(circuit: number): Promise<void>;
+  /**
+   * Make-before-break transition from an outgoing circuit to an incoming one,
+   * used only at a scheduled run-to-run transition. Manual runs and first
+   * energizes stay on `turnOn`.
+   */
+  handoff(from: number, to: number): Promise<void>;
   safeOffAll(): Promise<void>;
 }
 
@@ -174,19 +180,31 @@ export class Scheduler {
   ): Promise<void> {
     if (current) {
       if (!this.activeRun || this.activeRun.start !== current.start) {
-        // Transitioning to a new run: close the previous run's open record at the
-        // actual transition time before opening the new one.
-        if (this.activeRun) {
-          await this.options.history.closeOpenRun(now);
+        const previousRun = this.activeRun;
+        if (previousRun) {
+          // Run-to-run transition: close the outgoing run's record at its planned
+          // end (not `now`) — the overlap is a hardware detail, so history stays on
+          // planned times.
+          await this.options.history.closeOpenRun(previousRun.end);
+          // Make-before-break hand-off to the incoming circuit, unless it is the
+          // same circuit, in which case a hand-off to itself is meaningless and we
+          // fall back to the idempotent single-active energize.
+          if (previousRun.circuit !== current.circuit) {
+            await this.options.controller.handoff(
+              previousRun.circuit,
+              current.circuit,
+            );
+          } else {
+            await this.options.controller.turnOn(current.circuit);
+          }
+        } else {
+          // First energize of the session: strict single-active.
+          await this.options.controller.turnOn(current.circuit);
         }
-        await this.options.controller.turnOn(current.circuit);
         this.activeRun = current;
         // Record with an open end; it is closed with the real end when the run
         // stops. Writing the scheduled end up front would render a "turned off"
         // dated in the future and never record the actual end.
-        //
-        // Record the planned `start`, not `actualStart`: history stays on the clean
-        // schedule grid rather than showing the settle gap.
         await this.options.history.append({
           circuit: current.circuit,
           start: current.start,
@@ -213,9 +231,9 @@ export class Scheduler {
       return;
     }
     const maxSleep = this.options.maxSleepMs ?? DEFAULT_MAX_SLEEP_MS;
-    // Wake on the next run's `actualStart`, not its planned start, so the scheduler
-    // stays idle through the settle window and energizes when the gap elapses.
-    const nextBoundary = current?.end ?? next?.actualStart;
+    // Wake at the next transition: the current run's planned end, or the next run's
+    // planned start when idle.
+    const nextBoundary = current?.end ?? next?.start;
     const untilBoundary =
       nextBoundary !== undefined ? nextBoundary - now : maxSleep;
     const delay = Math.max(0, Math.min(maxSleep, untilBoundary));

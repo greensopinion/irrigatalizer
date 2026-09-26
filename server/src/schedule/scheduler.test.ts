@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Scheduler } from "./scheduler";
-import { SETTLE_MS } from "./timeline";
 import type {
   RunRecorder,
   SchedulerController,
@@ -73,8 +72,12 @@ class FakeTimer implements TimeoutTimer {
     const fire = this.fire;
     this.fire = undefined;
     fire?.();
-    await Promise.resolve();
-    await Promise.resolve();
+    // Drain the microtask queue enough times to cover the deepest await chain in
+    // evaluate() (a run-to-run hand-off: closeOpenRun → handoff → append) so the
+    // next timer wake is registered before tick() resolves.
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve();
+    }
   }
 }
 
@@ -82,6 +85,9 @@ class FakeController implements SchedulerController {
   readonly calls: string[] = [];
   async turnOn(circuit: number): Promise<void> {
     this.calls.push(`on:${circuit}`);
+  }
+  async handoff(from: number, to: number): Promise<void> {
+    this.calls.push(`handoff:${from}>${to}`);
   }
   async safeOffAll(): Promise<void> {
     this.calls.push("off");
@@ -190,53 +196,36 @@ describe("Scheduler", () => {
     ]);
   });
 
-  it("switches to the next circuit one at a time at the transition", async () => {
+  it("hands off to the next circuit at a scheduled transition", async () => {
+    const sixHundred = localTime(DAY.year, DAY.month, DAY.day, 6);
     const sixTen = localTime(DAY.year, DAY.month, DAY.day, 6, 10);
-    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
+    clock.set(sixHundred);
     const scheduler = build();
     await scheduler.start(config([twoStepProgram()]));
 
-    // Circuit 1 ends at 06:10; the settle gap holds everything off, then circuit 2
-    // energizes once the gap elapses — still strictly one at a time.
+    // Circuit 1 ends at 06:10; the scheduler hands off circuit 1 → 2 at the
+    // transition. Make-before-break ordering lives in the controller; the scheduler
+    // just delegates via `handoff` rather than a plain energize.
     clock.set(sixTen);
     await timer.tick();
-    clock.set(sixTen + SETTLE_MS);
-    await timer.tick();
 
-    expect(controller.calls).toEqual(["on:1", "off", "on:2"]);
+    expect(controller.calls).toEqual(["on:1", "handoff:1>2"]);
     expect(history.records.map((r) => r.circuit)).toEqual([1, 2]);
+    // History stays on planned times: run 1 closes at its planned end (06:10) and
+    // run 2 opens at its planned start (06:10) with an open end.
+    expect(history.records).toEqual([
+      { circuit: 1, start: sixHundred, end: sixTen },
+      { circuit: 2, start: sixTen, end: null },
+    ]);
   });
 
-  it("holds all circuits off through a settle gap, then energizes the next circuit", async () => {
-    const sixTen = localTime(DAY.year, DAY.month, DAY.day, 6, 10);
-
+  it("energizes the first run of a session with turnOn, not a hand-off", async () => {
     clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
     const scheduler = build();
     await scheduler.start(config([twoStepProgram()]));
+
+    // No prior active run, so the session's first energize is strict single-active.
     expect(controller.calls).toEqual(["on:1"]);
-
-    // At circuit 1's planned end the settle gap begins: nothing is energized.
-    clock.set(sixTen);
-    await timer.tick();
-    expect(controller.calls).toEqual(["on:1", "off"]);
-    // Circuit 1's record is closed at its planned end.
-    expect(history.records[0]).toEqual({
-      circuit: 1,
-      start: localTime(DAY.year, DAY.month, DAY.day, 6),
-      end: sixTen,
-    });
-
-    // Once the settle gap elapses, circuit 2 energizes.
-    clock.set(sixTen + SETTLE_MS);
-    await timer.tick();
-    expect(controller.calls).toEqual(["on:1", "off", "on:2"]);
-    // Circuit 2's history uses its PLANNED start (06:10), not the actual energize
-    // instant (06:10:02) — history stays on the clean schedule grid.
-    expect(history.records[1]).toEqual({
-      circuit: 2,
-      start: sixTen,
-      end: null,
-    });
   });
 
   it("turns everything off when the schedule finishes", async () => {
@@ -249,6 +238,20 @@ describe("Scheduler", () => {
     await timer.tick();
 
     expect(controller.calls).toEqual(["on:1", "off"]);
+  });
+
+  it("hands off between runs then safe-offs at end of schedule", async () => {
+    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6));
+    const scheduler = build();
+    await scheduler.start(config([twoStepProgram()]));
+
+    // Transition run 1 → run 2 at 06:10 (hand-off), then finish at 06:20 (idle).
+    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6, 10));
+    await timer.tick();
+    clock.set(localTime(DAY.year, DAY.month, DAY.day, 6, 20));
+    await timer.tick();
+
+    expect(controller.calls).toEqual(["on:1", "handoff:1>2", "off"]);
   });
 
   it("does not re-energize the same run on repeated evaluations", async () => {
@@ -300,6 +303,9 @@ describe("Scheduler", () => {
     const onError = vi.fn();
     const failing: SchedulerController = {
       async turnOn(): Promise<void> {
+        throw new Error("energize failed");
+      },
+      async handoff(): Promise<void> {
         throw new Error("energize failed");
       },
       async safeOffAll(): Promise<void> {},

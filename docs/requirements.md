@@ -83,31 +83,42 @@ preserving the safety-critical guarantee that at most one circuit is ever active
 This is the highest-priority category. All guarantees below are enforced in the
 backend, independent of the UI.
 
-- **[preserve/strengthen]** **Single-active-circuit invariant:** at most one circuit
-  is energized at any instant. Turning a circuit on must first turn all others off
-  and **verify** the off-state before energizing the new circuit. If verification
-  fails, leave **nothing** on.
-- **[preserve]** **Never simultaneous execution:** even when a schedule/program
-  enables multiple circuits, they run strictly **sequentially**, one at a time.
-- **[new]** **Valve-settle gap between consecutive scheduled circuits:** when one
-  scheduled circuit's run ends and the next begins back-to-back, insert a brief
-  all-off pause (a fixed 2 seconds) before energizing the next circuit. This lets
-  the closing valve's hydraulic transient (water hammer) damp out before the next
-  opens, and gives the single-active "drive all others off" step room so an
-  energize never races a de-energize on a shared supply. The gap is **taken from
-  the start of the following run** — the run still ends at its planned slot
-  boundary — so gaps **never accumulate** down a program and history records the
-  clean planned start/end. The gap is a fixed constant (not user-configurable): it
-  is a property of the plumbing, small enough that no run loses a meaningful amount
-  of water. It applies to **scheduled sequencing only**; **manual runs are
-  deliberately excluded** (they are operator-initiated and infrequent, so the
-  water-hammer-prone automated back-to-back case does not apply). Realized in the
-  pure timeline as a per-run `actualStart` (when the scheduler energizes) distinct
-  from the planned `start` (what history and the UI show), so no blocking wait sits
-  inside the `CircuitController`.
-- **[new]** **Watchdog / max-runtime cap:** every circuit has a hard maximum on-time.
-  If the scheduler stalls, hangs, or crashes, an independent watchdog forces all
-  relays off once a circuit exceeds its cap or the scheduler stops heart-beating.
+The single-active-circuit invariant is stated as two layers — a scheduling
+guarantee about pressure and a hardware guarantee about safety — because a
+bounded, commanded overlap during a scheduled hand-off is permitted (see the
+valve-overlap-sequencing feature). This supersedes the older "at most one circuit
+energized at any instant" wording.
+
+- **[change]** **Scheduling invariant (pressure):** at most **one** circuit is ever
+  in steady-state running at any time. Two circuits are energized only transiently,
+  during a scheduled hand-off between two consecutive runs. **No schedule ever plans
+  two circuits to run concurrently.**
+- **[new]** **Hardware invariant (safety):** at most **two** circuits are energized
+  at any instant, and a two-energized state is permitted **only** as the (outgoing,
+  incoming) pair of a single scheduled hand-off, and **only** for a bounded window
+  not exceeding `OVERLAP_MS`. Every other multi-active state is a fault and resolves
+  to safe-off. A non-hand-off energize still turns all others off and **verifies**
+  the off-state before energizing the target; if verification fails, leave
+  **nothing** on.
+- **[preserve/strengthen]** **Bounded and preemptible overlap:** the overlap window
+  is armed the instant the incoming circuit energizes and can never extend past
+  `OVERLAP_MS`. Any safety or control action — `safeOffAll`, a new `turnOn`, a
+  watchdog trip, shutdown, crash, or a manual run — cancels the pending delayed-off
+  and forces the intended state immediately. **Off always wins.**
+- **[preserve]** **Single recovery action:** `safeOffAll` (drive every pin low)
+  remains the one and only recovery for **every** fault and every lifecycle event.
+  No fault path reasons about how many circuits are on; it drives all off. This is
+  the property that keeps the safety model simple.
+- **[change]** **Never simultaneous execution:** even when a schedule/program enables
+  multiple circuits, they run strictly **sequentially** in steady state, one at a
+  time; the only two-on state is the bounded hand-off overlap above.
+- **[new]** **Watchdog / max-runtime cap:** every steady-state circuit has a hard
+  maximum on-time. If the scheduler stalls, hangs, or crashes, an independent
+  watchdog forces all relays off once a circuit exceeds its cap or the scheduler
+  stops heart-beating. During a hand-off the cap tracks the **incoming** circuit (the
+  one that continues running). A new **overlap-stuck** trip covers a two-energized
+  state that persists past `OVERLAP_MS` plus a small margin: like every other trip it
+  is a fault resolving to `safeOffAll`.
 - **[preserve/strengthen]** **Safe state on process exit:** on shutdown, turn all
   circuits off, flush history, and release GPIO. (Exists today via exit cleanup.)
 - **[new]** **Safe state on boot:** at process startup, drive **all relays off before
@@ -117,6 +128,20 @@ backend, independent of the UI.
 - **[change]** The `CircuitController` is the single authority for relay state; all
   callers (scheduler, manual run, API) go through it so the invariant and watchdog
   always apply.
+
+Assumptions behind the redefined invariant:
+
+- **A1 — Supply capacity.** The water supply tolerates two circuits open
+  simultaneously for the bounded overlap window (≤ `OVERLAP_MS`, target 2s). Stated
+  for the record only — **nothing needs to be done about it.** On a normal
+  residential supply the momentary pressure dip stays within the valves' range, and
+  even a marginal system only sees a slightly sluggish, self-correcting ~2s
+  transition. It is not a hazard and is fully reversible, so no capacity check or
+  sign-off is required.
+- **A2 — Rationale of the invariant.** The single-active rule exists to guarantee
+  adequate pressure/flow per circuit, **not** to prevent an electrical or mechanical
+  hazard from two energized relays. This is the reasoning that justifies permitting a
+  two-energized state at all.
 
 ---
 

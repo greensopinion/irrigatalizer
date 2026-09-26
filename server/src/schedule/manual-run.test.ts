@@ -52,6 +52,9 @@ class FakeController implements SchedulerController {
   async turnOn(circuit: number): Promise<void> {
     this.active = circuit;
   }
+  async handoff(_from: number, to: number): Promise<void> {
+    this.active = to;
+  }
   async safeOffAll(): Promise<void> {
     this.active = undefined;
   }

@@ -35,7 +35,17 @@ export interface WatchdogOptions {
 
 export type WatchdogTripReason =
   | { kind: "max-runtime-exceeded"; circuit: number; maxOnMs: number }
-  | { kind: "heartbeat-stale"; ageMs: number };
+  | { kind: "heartbeat-stale"; ageMs: number }
+  | { kind: "overlap-stuck"; overdueMs: number };
+
+/**
+ * Backstop margin the watchdog adds beyond the controller's own `OVERLAP_MS`
+ * timer before treating a lingering two-energized state as stuck. The
+ * controller's own timer normally releases the outgoing circuit first; this
+ * margin gives it room to do so, so the watchdog trips only when that timer
+ * never fired (e.g. a stalled event loop).
+ */
+const OVERLAP_BACKSTOP_MARGIN_MS = 1000;
 
 /**
  * An independent safety net that forces all circuits off if a circuit runs past
@@ -51,6 +61,7 @@ export class Watchdog {
   private activeCircuit: number | undefined;
   private activeSince = 0;
   private activeMaxOnMs = 0;
+  private overlapDeadline: number | undefined;
   private lastHeartbeat = 0;
   private running = false;
   private tripped = false;
@@ -93,10 +104,32 @@ export class Watchdog {
   }
 
   /**
-   * Record that no circuit is active, disarming the max-runtime cap.
+   * Record that a scheduled hand-off began, arming the overlap-stuck backstop
+   * for the bounded two-energized window.
+   */
+  overlapStarted(maxOverlapMs: number): void {
+    this.overlapDeadline =
+      this.options.clock() + maxOverlapMs + OVERLAP_BACKSTOP_MARGIN_MS;
+  }
+
+  /**
+   * Record that no circuit is active, disarming the max-runtime cap and the
+   * overlap-stuck backstop (a completed hand-off or safe-off ends the window).
    */
   circuitCleared(): void {
     this.activeCircuit = undefined;
+    this.overlapDeadline = undefined;
+  }
+
+  /**
+   * Record that a hand-off's overlap resolved normally — the outgoing circuit was
+   * released within the window — disarming only the overlap-stuck backstop. The
+   * incoming circuit keeps running, so its max-runtime cap is left armed. Without
+   * this, a clean hand-off would leave `overlapDeadline` set and trip a spurious
+   * overlap-stuck once the deadline passed.
+   */
+  overlapEnded(): void {
+    this.overlapDeadline = undefined;
   }
 
   /**
@@ -124,6 +157,14 @@ export class Watchdog {
       }
     }
 
+    if (this.overlapDeadline !== undefined && now >= this.overlapDeadline) {
+      this.trip({
+        kind: "overlap-stuck",
+        overdueMs: now - this.overlapDeadline,
+      });
+      return;
+    }
+
     const heartbeatAge = now - this.lastHeartbeat;
     if (heartbeatAge >= this.options.heartbeatTimeoutMs) {
       this.trip({ kind: "heartbeat-stale", ageMs: heartbeatAge });
@@ -133,6 +174,7 @@ export class Watchdog {
   private trip(reason: WatchdogTripReason): void {
     this.tripped = true;
     this.activeCircuit = undefined;
+    this.overlapDeadline = undefined;
     try {
       const result = this.options.onTrip(reason);
       if (result instanceof Promise) {

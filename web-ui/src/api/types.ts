@@ -63,11 +63,6 @@ export interface ScheduledRun {
   start: number;
   /** Planned end of the run. */
   end: number;
-  /**
-   * When the circuit is actually energized: `start` plus any settle gap. Live
-   * status and countdown key on this so they match the real valve transition.
-   */
-  actualStart: number;
   programId: string;
 }
 
